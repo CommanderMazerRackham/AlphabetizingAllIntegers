@@ -9,70 +9,70 @@ function randElement(arr) {
 
 //------------------- POWER SEGMENT START -------------------
 //"ni"
-const ni  		= { text: "ni",		val: 0,		validNexts: [] };
+const ni  		= { id: "ni", text: "ni",		val: 0,		validNexts: [] };
 
 //"thousand", "million", "billion", "trillion", "quadrillion", "quintillion", "sextillion", "septillion", "octillion", "nonillion"
-const thousand    = { text: "thousand", val: 0, validNexts: [] };
-const million     = { text: "million",  val: 1,  validNexts: [] };
-const billion     = { text: "billion",  val: 2,  validNexts: [] };
-const trillion    = { text: "trillion", val: 3,  validNexts: [] };
-const quadrillion = { text: "quadrillion", val: 4,  validNexts: [] };
-const quintillion = { text: "quintillion", val: 5,  validNexts: [] };
-const sextillion  = { text: "sextillion",  val: 6,  validNexts: [] };
-const septillion  = { text: "septillion",  val: 7,  validNexts: [] };
-const octillion   = { text: "octillion",   val: 8,  validNexts: [] };
-const nonillion   = { text: "nonillion",   val: 9,  validNexts: [] };
+const thousand    = { id: "thousand", text: "thousand", val: 0, validNexts: [] };
+const million     = { id: "million", text: "mi",  val: 1,  validNexts: [] };
+const billion     = { id: "billion", text: "bi",  val: 2,  validNexts: [] };
+const trillion    = { id: "trillion", text: "tri", val: 3,  validNexts: [] };
+const quadrillion = { id: "quadrillion", text: "quadri", val: 4,  validNexts: [] };
+const quintillion = { id: "quintillion", text: "quinti", val: 5,  validNexts: [] };
+const sextillion  = { id: "sextillion", text: "sexti",  val: 6,  validNexts: [] };
+const septillion  = { id: "septillion", text: "septi",  val: 7,  validNexts: [] };
+const octillion   = { id: "octillion", text: "octi",   val: 8,  validNexts: [] };
+const nonillion   = { id: "nonillion", text: "noni",   val: 9,  validNexts: [] };
 
 //"un", "duo", "tre", "quattuor", "quin", "se", "septe", "octo", "nove"
-const un		= { text: "un",		val: 1,		validNexts: [] };
-const duo		= { text: "duo",	val: 2,		validNexts: [] };
-const tre		= { text: "tre",	val: 3,		validNexts: [] };
-const quattuor	= { text: "quattuor",val: 4,	validNexts: [] };
-const quin		= { text: "quin",	val: 5,		validNexts: [] };
-const se		= { text: "se",		val: 6,		validNexts: [] };
-const septe		= { text: "septe",	val: 7,		validNexts: [] };
-const octo		= { text: "octo",	val: 8,		validNexts: [] };
-const nove		= { text: "nove",	val: 9,		validNexts: [] };
+const un		= { id: "un", text: "un",		val: 1,		validNexts: [] };
+const duo		= { id: "duo", text: "duo",	val: 2,		validNexts: [] };
+const tre		= { id: "tre", text: "tre",	val: 3,		validNexts: [] };
+const quattuor	= { id: "quattuor", text: "quattuor",val: 4,	validNexts: [] };
+const quin		= { id: "quin", text: "quin",	val: 5,		validNexts: [] };
+const se		= { id: "se", text: "se",		val: 6,		validNexts: [] };
+const septe		= { id: "septe", text: "septe",	val: 7,		validNexts: [] };
+const octo		= { id: "octo", text: "octo",	val: 8,		validNexts: [] };
+const nove		= { id: "nove", text: "nove",	val: 9,		validNexts: [] };
 
 //"deci", "viginti", "triginta", "quadraginta", "quinquaginta", "sexaginta", "septuaginta", "octoginta", "nonaginta"
-const deci		    = { text: "deci",   		val: 10,	validNexts: [] };
-const viginti		= { text: "viginti",		val: 20,	validNexts: [] };
-const triginta		= { text: "trigint",		val: 30,	validNexts: [] };
-const quadraginta	= { text: "quadragint",	val: 40,	validNexts: [] };
-const quinquaginta	= { text: "quinquagint",	val: 50,	validNexts: [] };
-const sexaginta		= { text: "sexagint",		val: 60,	validNexts: [] };
-const septuaginta	= { text: "septuagint",	val: 70,	validNexts: [] };
-const octoginta		= { text: "octogint",		val: 80,	validNexts: [] };
-const nonaginta		= { text: "nonagint",		val: 90,	validNexts: [] };
+const deci		    = { id: "deci", text: "deci",   		val: 10,	validNexts: [] };
+const viginti		= { id: "viginti", text: "viginti",		val: 20,	validNexts: [] };
+const triginta		= { id: "triginta", text: "trigint",		val: 30,	validNexts: [] };
+const quadraginta	= { id: "quadraginta", text: "quadragint",	val: 40,	validNexts: [] };
+const quinquaginta	= { id: "quinquaginta", text: "quinquagint",	val: 50,	validNexts: [] };
+const sexaginta		= { id: "sexaginta", text: "sexagint",		val: 60,	validNexts: [] };
+const septuaginta	= { id: "septuaginta", text: "septuagint",	val: 70,	validNexts: [] };
+const octoginta		= { id: "octoginta", text: "octogint",		val: 80,	validNexts: [] };
+const nonaginta		= { id: "nonaginta", text: "nonagint",		val: 90,	validNexts: [] };
 
 //"centi", "ducenti", "trecenti", "quadringenti", "quingenti", "sescenti", "septingenti", "octingenti", "nongenti"
-const centi		    = { text: "centi",  		val: 100,	validNexts: [] };
-const ducenti		= { text: "ducenti",		val: 200,	validNexts: [] };
-const trecenti		= { text: "trecenti",		val: 300,	validNexts: [] };
-const quadringenti	= { text: "quadringenti",	val: 400,	validNexts: [] };
-const quingenti		= { text: "quingenti",		val: 500,	validNexts: [] };
-const sescenti		= { text: "sescenti",		val: 600,	validNexts: [] };
-const septingenti	= { text: "septingenti",	val: 700,	validNexts: [] };
-const octingenti	= { text: "octingenti",		val: 800,	validNexts: [] };
-const nongenti		= { text: "nongenti",		val: 900,	validNexts: [] };
+const centi		    = { id: "centi", text: "centi",  		val: 100,	validNexts: [] };
+const ducenti		= { id: "ducenti", text: "ducenti",		val: 200,	validNexts: [] };
+const trecenti		= { id: "trecenti", text: "trecenti",		val: 300,	validNexts: [] };
+const quadringenti	= { id: "quadringenti", text: "quadringenti",	val: 400,	validNexts: [] };
+const quingenti		= { id: "quingenti", text: "quingenti",		val: 500,	validNexts: [] };
+const sescenti		= { id: "sescenti", text: "sescenti",		val: 600,	validNexts: [] };
+const septingenti	= { id: "septingenti", text: "septingenti",	val: 700,	validNexts: [] };
+const octingenti	= { id: "octingenti", text: "octingenti",		val: 800,	validNexts: [] };
+const nongenti		= { id: "nongenti", text: "nongenti",		val: 900,	validNexts: [] };
 
 //Flags
-const powerStart	    = { text: "",	val: 0,	validNexts: [] };
-const powerPseudoEnd	= { text: "lli",	val: 0,	validNexts: [] };
-const powerEnd		    = { text: "on",	val: 0,	validNexts: [] };
-const powerEndLittles		    = { text: "",	val: 0,	validNexts: [] };
-const powerGetCoeff          = { text: " ", val: 0, validNexts: [] };
+const powerPseudoStart	    = { id: "powerPseudoStart", text: "",	val: 0,	validNexts: [] };
+const powerStart	    = { id: "powerStart", text: "",	val: 0,	validNexts: [] };
+const powerPseudoEnd	= { id: "powerPseudoEnd", text: "lli",	val: 0,	validNexts: [] };
+const powerEnd		    = { id: "powerEnd", text: "on",	val: 0,	validNexts: [] };
+const powerGetCoeff     = { id: "powerGetCoeff", text: " ", val: 0, validNexts: [] };
 //"s", "x", "m", "n"
-const sPower	= { text: "s",	val: 0,	validNexts: [] };
-const xPower	= { text: "x",	val: 0,	validNexts: [] };
-const mPower	= { text: "m",	val: 0,	validNexts: [] };
-const nPower	= { text: "n",	val: 0,	validNexts: [] };
-const sPowerTre	= { text: "s",	val: 0,	validNexts: [] };
-const aPower	= { text: "a",	val: 0,	validNexts: [] };
-const iPower	= { text: "i",	val: 0,	validNexts: [] };
+const sPower	= { id: "sPower", text: "s",	val: 0,	validNexts: [] };
+const xPower	= { id: "xPower", text: "x",	val: 0,	validNexts: [] };
+const mPower	= { id: "mPower", text: "m",	val: 0,	validNexts: [] };
+const nPower	= { id: "nPower", text: "n",	val: 0,	validNexts: [] };
+const sPowerTre	= { id: "sPowerTre", text: "s",	val: 0,	validNexts: [] };
+const aPower	= { id: "aPower", text: "a",	val: 0,	validNexts: [] };
+const iPower	= { id: "iPower", text: "i",	val: 0,	validNexts: [] };
 //-------------------- POWER SEGMENT END --------------------
 
-const powerLittles = [thousand, million, billion, trillion, quadrillion, quintillion, sextillion, septillion, octillion, nonillion];
+const powerLittles = [million, billion, trillion, quadrillion, quintillion, sextillion, septillion, octillion, nonillion];
 const power1 = [un, duo, tre, quattuor, quin, se, septe, octo, nove];
 const power10 = [deci, viginti, triginta, quadraginta, quinquaginta, sexaginta, septuaginta, octoginta, nonaginta];
 const power100 = [centi, ducenti, trecenti, quadringenti, quingenti, sescenti, septingenti, octingenti, nongenti];
@@ -85,11 +85,9 @@ const power100m = [octingenti];
 const power100n = [centi, ducenti, trecenti, quadringenti, quingenti, sescenti, septingenti, nongenti];
 const power100x = [centi, octingenti];
 
-powerStart.validNexts = [
-    ...power1, ...power10, ...power100,
-    thousand, million, billion, trillion, quadrillion, quintillion, sextillion, septillion, octillion, nonillion
-];
-powerPseudoEnd.validNexts = [powerEnd, powerStart, ni];
+powerStart.validNexts = [...power1, ...power10, ...power100, ...powerLittles, thousand];
+powerPseudoStart.validNexts = [...power1, ...power10, ...power100, ...powerLittles];
+powerPseudoEnd.validNexts = [powerEnd, powerPseudoStart, ni];
 ni.validNexts = [powerPseudoEnd];
 
 un.validNexts = [...power10, ...power100];
@@ -123,7 +121,7 @@ mPower.validNexts =         [...power10m, ...power100m];
 nPower.validNexts =         [...power10n, ...power100n];
 sPowerTre.validNexts =      [...power10s, ...power100s, ...power10x, ...power100x];
 for (const power of powerLittles) {
-    power.validNexts = [powerEndLittles];
+    power.validNexts = [powerPseudoEnd];
 }
 deci.validNexts =           [...power100, powerPseudoEnd];
 viginti.validNexts =        [...power100, powerPseudoEnd];
@@ -142,59 +140,59 @@ for (const power of power100) {
 
 //------------------- COEFFICIENT SEGMENT START -------------------
 //"nine hundred", "eight hundred", "seven hundred", "six hundred", "five hundred", "four hundred", "three hundred", "two hundred",
-const nine_hundred	= { text: "nine hundred",	val: 900,	validNexts: [] };
-const eight_hundred	= { text: "eight hundred",	val: 800,	validNexts: [] };
-const seven_hundred	= { text: "seven hundred",	val: 700,	validNexts: [] };
-const six_hundred	= { text: "six hundred",	val: 600,	validNexts: [] };
-const five_hundred	= { text: "five hundred",	val: 500,	validNexts: [] };
-const four_hundred	= { text: "four hundred",	val: 400,	validNexts: [] };
-const three_hundred	= { text: "three hundred",	val: 300,	validNexts: [] };
-const two_hundred	= { text: "two hundred",	val: 200,	validNexts: [] };
-const one_hundred	= { text: "one hundred",	val: 100,	validNexts: [] };
+const nine_hundred	= { id: "nine_hundred", text: "nine hundred",	val: 900,	validNexts: [] };
+const eight_hundred	= { id: "eight_hundred", text: "eight hundred",	val: 800,	validNexts: [] };
+const seven_hundred	= { id: "seven_hundred", text: "seven hundred",	val: 700,	validNexts: [] };
+const six_hundred	= { id: "six_hundred", text: "six hundred",	val: 600,	validNexts: [] };
+const five_hundred	= { id: "five_hundred", text: "five hundred",	val: 500,	validNexts: [] };
+const four_hundred	= { id: "four_hundred", text: "four hundred",	val: 400,	validNexts: [] };
+const three_hundred	= { id: "three_hundred", text: "three hundred",	val: 300,	validNexts: [] };
+const two_hundred	= { id: "two_hundred", text: "two hundred",	val: 200,	validNexts: [] };
+const one_hundred	= { id: "one_hundred", text: "one hundred",	val: 100,	validNexts: [] };
 
 //"ninety", "eighty", "seventy", "sixty", "fifty", "forty", "thirty", "twenty"
-const ninety       = { text: "ninety",  val: 90, validNexts: [] };
-const eighty       = { text: "eighty",  val: 80, validNexts: [] };
-const seventy      = { text: "seventy", val: 70, validNexts: [] };
-const sixty        = { text: "sixty",   val: 60, validNexts: [] };
-const fifty        = { text: "fifty",   val: 50, validNexts: [] };
-const forty        = { text: "forty",   val: 40, validNexts: [] };
-const thirty       = { text: "thirty",  val: 30, validNexts: [] };
-const twenty       = { text: "twenty",  val: 20, validNexts: [] };
+const ninety       = { id: "ninety", text: "ninety",  val: 90, validNexts: [] };
+const eighty       = { id: "eighty", text: "eighty",  val: 80, validNexts: [] };
+const seventy      = { id: "seventy", text: "seventy", val: 70, validNexts: [] };
+const sixty        = { id: "sixty", text: "sixty",   val: 60, validNexts: [] };
+const fifty        = { id: "fifty", text: "fifty",   val: 50, validNexts: [] };
+const forty        = { id: "forty", text: "forty",   val: 40, validNexts: [] };
+const thirty       = { id: "thirty", text: "thirty",  val: 30, validNexts: [] };
+const twenty       = { id: "twenty", text: "twenty",  val: 20, validNexts: [] };
 
 //"nineteen", "eighteen", "seventeen", "sixteen", "fifteen", "fourteen", "thirteen", "twelve", "eleven", "ten"
-const nineteen      = { text: "nineteen",   val: 19, validNexts: [] };
-const eighteen      = { text: "eighteen",   val: 18, validNexts: [] };
-const seventeen     = { text: "seventeen",  val: 17, validNexts: [] };
-const sixteen       = { text: "sixteen",    val: 16, validNexts: [] };
-const fifteen       = { text: "fifteen",    val: 15, validNexts: [] };
-const fourteen      = { text: "fourteen",   val: 14, validNexts: [] };
-const thirteen      = { text: "thirteen",   val: 13, validNexts: [] };
-const twelve        = { text: "twelve",     val: 12, validNexts: [] };
-const eleven        = { text: "eleven",     val: 11, validNexts: [] };
-const ten           = { text: "ten",        val: 10, validNexts: [] };
+const nineteen      = { id: "nineteen", text: "nineteen",   val: 19, validNexts: [] };
+const eighteen      = { id: "eighteen", text: "eighteen",   val: 18, validNexts: [] };
+const seventeen     = { id: "seventeen", text: "seventeen",  val: 17, validNexts: [] };
+const sixteen       = { id: "sixteen", text: "sixteen",    val: 16, validNexts: [] };
+const fifteen       = { id: "fifteen", text: "fifteen",    val: 15, validNexts: [] };
+const fourteen      = { id: "fourteen", text: "fourteen",   val: 14, validNexts: [] };
+const thirteen      = { id: "thirteen", text: "thirteen",   val: 13, validNexts: [] };
+const twelve        = { id: "twelve", text: "twelve",     val: 12, validNexts: [] };
+const eleven        = { id: "eleven", text: "eleven",     val: 11, validNexts: [] };
+const ten           = { id: "ten", text: "ten",        val: 10, validNexts: [] };
 
 //"nine", "eight", "seven", "six", "five", "four", "three", "two", "one"
-const nine        = { text: "nine",  val: 9, validNexts: [] };
-const eight       = { text: "eight", val: 8, validNexts: [] };
-const seven       = { text: "seven", val: 7, validNexts: [] };
-const six         = { text: "six",   val: 6, validNexts: [] };
-const five        = { text: "five",  val: 5, validNexts: [] };
-const four        = { text: "four",  val: 4, validNexts: [] };
-const three       = { text: "three", val: 3, validNexts: [] };
-const two         = { text: "two",   val: 2, validNexts: [] };
-const one         = { text: "one",   val: 1, validNexts: [] };
+const nine        = { id: "nine", text: "nine",  val: 9, validNexts: [] };
+const eight       = { id: "eight", text: "eight", val: 8, validNexts: [] };
+const seven       = { id: "seven", text: "seven", val: 7, validNexts: [] };
+const six         = { id: "six", text: "six",   val: 6, validNexts: [] };
+const five        = { id: "five", text: "five",  val: 5, validNexts: [] };
+const four        = { id: "four", text: "four",  val: 4, validNexts: [] };
+const three       = { id: "three", text: "three", val: 3, validNexts: [] };
+const two         = { id: "two", text: "two",   val: 2, validNexts: [] };
+const one         = { id: "one", text: "one",   val: 1, validNexts: [] };
 
 //"zero"
-const zero          = { text: "zero",	val: 0,	validNexts: [] };
+const zero          = { id: "zero", text: "zero",	val: 0,	validNexts: [] };
 
 //Flags
-const coeffStart        = { text: "", val: 0, validNexts: [] };
-const coeffEnd    = { text: "", val: 0, validNexts: [] };
-const coeffGetPower          = { text: " ", val: 0, validNexts: [] };
+const coeffStart        = { id: "coeffStart", text: "", val: 0, validNexts: [] };
+const coeffEnd    = { id: "coeffEnd", text: "", val: 0, validNexts: [] };
+const coeffGetPower          = { id: "coeffGetPower", text: " ", val: 0, validNexts: [] };
 //" "
-const space100   = { text: " ",	val: 0,	validNexts: [] };
-const space10    = { text: " ",	val: 0,	validNexts: [] };
+const space100   = { id: "space100", text: " ",	val: 0,	validNexts: [] };
+const space10    = { id: "space10", text: " ",	val: 0,	validNexts: [] };
 //-------------------- COEFFICIENT SEGMENT END --------------------
 
 const coeff100 = [one_hundred, two_hundred, three_hundred, four_hundred, five_hundred, six_hundred, seven_hundred, eight_hundred, nine_hundred];
@@ -218,8 +216,8 @@ for (const coeff of coeff1) {
     coeff.validNexts = [coeffEnd];
 }
 
-const integerEnd    = { text: "", val: 0, validNexts: [] };
-const integerStart  = { text: "", val: 0, validNexts: [] };
+const integerEnd    = { id: "integerEnd", text: "", val: 0, validNexts: [] };
+const integerStart  = { id: "integerStart", text: "", val: 0, validNexts: [] };
 
 zero.validNexts = [integerEnd];
 coeffGetPower.validNexts = [powerStart];
@@ -228,14 +226,78 @@ powerGetCoeff.validNexts = [coeffStart];
 integerStart.validNexts = [coeffStart, zero];
 coeffEnd.validNexts = [integerEnd, coeffGetPower];
 powerEnd.validNexts = [integerEnd, powerGetCoeff];
-powerEndLittles.validNexts = [integerEnd, powerGetCoeff];
+thousand.validNexts = [integerEnd, powerGetCoeff];
 
-function getTestNumber() {
-    numberText = "";
-    numberSegment = integerStart;
-    while (numberSegment !== integerEnd) {
-        numberText += numberSegment.text;
-        numberSegment = randElement(numberSegment.validNexts);
-    }
-    console.log(numberText);
+const letterRank = {
+    " ": 0, "a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "j": 10, "k": 11, "l": 12, "m": 13, "n": 14, "o": 15, "p": 16, "q": 17, "r": 18, "s": 19, "t": 20, "u": 21, "v": 22, "w": 23, "x": 24, "y": 25, "z": 26
 }
+
+class WordedNumber {
+    constructor(
+        segmentHead = integerStart, 
+        segments = [integerStart], 
+        numberText = "", 
+        isTerminated = false, 
+        isPowerSegment = false,
+        largestPower = Infinity,
+        currentPower = 0,
+    ) {
+        this.segmentHead = segmentHead;
+        this.segments = segments;
+        this.numberText = numberText + segmentHead.text;
+        this.isTerminated = isTerminated;
+        this.isPowerSegment = isPowerSegment;
+        //Update power tracking
+        this.largestPower = largestPower;
+        this.currentPower = currentPower;
+        if (this.segmentHead === powerStart) {
+            this.isPowerSegment = true;
+            this.currentPower = 0;
+        } else if (this.segmentHead === powerEnd) {
+            this.isPowerSegment = false;
+            this.largestPower = this.currentPower;
+        } else if (this.isPowerSegment) {
+            if (this.segmentHead === ni || this.segmentHead === powerPseudoStart) {
+                this.currentPower *= 1000;
+            } else {
+                this.currentPower += segmentHead.val;
+            }
+        }
+        if (segmentHead === integerEnd) {
+            this.isTerminated = true;
+        }
+    }
+    extend(segment) {
+        if (this.isTerminated) {
+            return this; // No further extension allowed
+        }
+        return new WordedNumber(
+            segment, 
+            [...this.segments, segment], 
+            this.numberText,
+            this.isTerminated,
+            this.isPowerSegment,
+            this.largestPower,
+            this.currentPower);
+    }
+    getValidNexts() {
+        let validNexts = this.segmentHead.validNexts;
+        //Handle descending nature of powers
+        if (!this.isPowerSegment) {
+            return validNexts;
+        }
+        if (this.currentPower * 1000 >= this.largestPower) {
+            validNexts = arrDiff(validNexts, [ni, powerPseudoStart]);
+        }
+        let invalidNexts = [];
+        for (const next of validNexts) {
+            if (next.val + this.currentPower >= this.largestPower) {
+                invalidNexts.push(next);
+            }
+        }
+        validNexts = arrDiff(validNexts, invalidNexts);
+        return validNexts;
+    }
+}
+
+export { WordedNumber };
