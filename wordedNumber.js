@@ -1,5 +1,9 @@
 //Helper functions
 function arrDiff(arr1, arr2) {
+    if (arr2.length === 0) return arr1; // Fast path
+    if (arr2.length === 1) return arr1.filter(item => item !== arr2[0]); // Single item
+    if (arr2.length === 2) return arr1.filter(item => item !== arr2[0] && item !== arr2[1]); // Two items
+    if (arr2.length === 3) return arr1.filter(item => item !== arr2[0] && item !== arr2[1] && item !== arr2[2]); // Three items
     const set2 = new Set(arr2);
     return arr1.filter(item => !set2.has(item));
 }
@@ -86,8 +90,8 @@ const power100n = [centi, ducenti, trecenti, quadringenti, quingenti, sescenti, 
 const power100x = [centi, octingenti];
 
 powerStart.validNexts = [...power1, ...power10, ...power100, ...powerLittles, thousand];
-powerPseudoStart.validNexts = [...power1, ...power10, ...power100, ...powerLittles];
-powerPseudoEnd.validNexts = [powerEnd, powerPseudoStart, ni];
+powerPseudoStart.validNexts = [ni, ...power1, ...power10, ...power100, ...powerLittles];
+powerPseudoEnd.validNexts = [powerEnd, powerPseudoStart];
 ni.validNexts = [powerPseudoEnd];
 
 un.validNexts = [...power10, ...power100];
@@ -253,11 +257,11 @@ class WordedNumber {
         if (this.segmentHead === powerStart) {
             this.isPowerSegment = true;
             this.currentPower = 0;
-        } else if (this.segmentHead === powerEnd) {
+        } else if (this.segmentHead === powerEnd || this.segmentHead === thousand) {
             this.isPowerSegment = false;
             this.largestPower = this.currentPower;
         } else if (this.isPowerSegment) {
-            if (this.segmentHead === ni || this.segmentHead === powerPseudoStart) {
+            if (this.segmentHead === powerPseudoStart) {
                 this.currentPower *= 1000;
             } else {
                 this.currentPower += segmentHead.val;
@@ -266,6 +270,7 @@ class WordedNumber {
         if (segmentHead === integerEnd) {
             this.isTerminated = true;
         }
+        this._validNextsCache = null;
     }
     extend(segment) {
         if (this.isTerminated) {
@@ -281,23 +286,57 @@ class WordedNumber {
             this.currentPower);
     }
     getValidNexts() {
+        if (this._validNextsCache !== null) {
+            return this._validNextsCache;
+        }
         let validNexts = this.segmentHead.validNexts;
+        if (0 >= this.largestPower) {
+            validNexts = arrDiff(validNexts, [coeffGetPower]);
+        }
         //Handle descending nature of powers
         if (!this.isPowerSegment) {
+            this._validNextsCache = validNexts;
             return validNexts;
         }
-        if (this.currentPower * 1000 >= this.largestPower) {
-            validNexts = arrDiff(validNexts, [ni, powerPseudoStart]);
-        }
         let invalidNexts = [];
+        if (this.currentPower * 1000 >= this.largestPower) {
+            invalidNexts.push(powerPseudoStart);
+        }
+        //The smallest "a" implies "centi"
+        if (this.currentPower + 100 >= this.largestPower) {
+            invalidNexts.push(aPower);
+        }
+        //The smallest "x" implies octoginta
+        if (this.currentPower + 80 >= this.largestPower) {
+            invalidNexts.push(xPower);
+        }
+        //The smallest "m, s" implies viginti
+        if (this.currentPower + 20 >= this.largestPower) {
+            invalidNexts.push(mPower, sPower, sPowerTre);
+        }
+        //The smallest "n" implies deci
+        if (this.currentPower + 10 >= this.largestPower) {
+            invalidNexts.push(nPower);
+        }
+        //Make sure we don't use a power1 when we should be using a powerLittle
+        let min10added = 100;
+        for (const power of power10) {
+            if (!invalidNexts.includes(power) && validNexts.includes(power)) {
+                min10added = Math.min(min10added, power.val);
+            }
+        }
+        for (const power of power1) {
+            if (power.val + min10added >= this.largestPower - this.currentPower) {
+                invalidNexts.push(power);
+            }
+        }
         for (const next of validNexts) {
             if (next.val + this.currentPower >= this.largestPower) {
                 invalidNexts.push(next);
             }
         }
         validNexts = arrDiff(validNexts, invalidNexts);
+        this._validNextsCache = validNexts;
         return validNexts;
     }
 }
-
-export { WordedNumber };
