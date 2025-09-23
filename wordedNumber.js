@@ -232,10 +232,6 @@ coeffEnd.validNexts = [integerEnd, coeffGetPower];
 powerEnd.validNexts = [integerEnd, powerGetCoeff];
 thousand.validNexts = [integerEnd, powerGetCoeff];
 
-const letterRank = {
-    " ": 0, "a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "j": 10, "k": 11, "l": 12, "m": 13, "n": 14, "o": 15, "p": 16, "q": 17, "r": 18, "s": 19, "t": 20, "u": 21, "v": 22, "w": 23, "x": 24, "y": 25, "z": 26
-}
-
 class WordedNumber {
     constructor(
         segmentHead = integerStart, 
@@ -314,10 +310,7 @@ class WordedNumber {
         if (this.currentPower + 20 >= this.largestPower) {
             invalidNexts.push(mPower, sPower, sPowerTre);
         }
-        //The smallest "n" implies deci
-        if (this.currentPower + 10 >= this.largestPower) {
-            invalidNexts.push(nPower);
-        }
+        //The smallest "n" implies deci, but we handle that implicitly below
         //Make sure we don't use a power1 when we should be using a powerLittle
         let min10added = 100;
         for (const power of power10) {
@@ -339,4 +332,19 @@ class WordedNumber {
         this._validNextsCache = validNexts;
         return validNexts;
     }
+}
+
+// Export for use in other files
+if (typeof window !== 'undefined') {
+    window.WordedNumber = WordedNumber;
+}
+
+// Export for Node.js
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { WordedNumber };
+}
+
+// For direct script loading, make available globally
+if (typeof global !== 'undefined') {
+    global.WordedNumber = WordedNumber;
 }

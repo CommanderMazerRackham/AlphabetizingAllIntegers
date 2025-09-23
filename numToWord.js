@@ -128,3 +128,20 @@ class NumToWord {
 }
 
 const numToWord = new NumToWord();
+
+// Export for use in other files
+if (typeof window !== 'undefined') {
+    window.NumToWord = NumToWord;
+    window.numToWord = numToWord;
+}
+
+// Export for Node.js
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { NumToWord, numToWord };
+}
+
+// For direct script loading, make available globally
+if (typeof global !== 'undefined') {
+    global.NumToWord = NumToWord;
+    global.numToWord = numToWord;
+}

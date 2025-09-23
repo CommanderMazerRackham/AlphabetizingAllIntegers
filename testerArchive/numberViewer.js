@@ -21,6 +21,15 @@ class NumberViewer {
         this.searchBtn = document.getElementById('searchBtn');
         this.stopSearchBtn = document.getElementById('stopSearchBtn');
         
+        // String matching elements
+        this.matchBtn = document.getElementById('matchBtn');
+        this.matchPanel = document.getElementById('matchPanel');
+        this.targetString = document.getElementById('targetString');
+        this.startMatchBtn = document.getElementById('startMatchBtn');
+        this.stopMatchBtn = document.getElementById('stopMatchBtn');
+        this.matchStats = document.getElementById('matchStats');
+        this.matchResults = document.getElementById('matchResults');
+        
         // Info panel elements
         this.currentSegment = document.getElementById('currentSegment');
         this.isPowerSegment = document.getElementById('isPowerSegment');
@@ -41,6 +50,18 @@ class NumberViewer {
         this.backBtn.addEventListener('click', () => this.goBack());
         this.searchBtn.addEventListener('click', () => this.startStuckNumberSearch());
         this.stopSearchBtn.addEventListener('click', () => this.stopStuckNumberSearch());
+        
+        // String matching event listeners
+        this.matchBtn.addEventListener('click', () => this.toggleMatchPanel());
+        this.startMatchBtn.addEventListener('click', () => this.startStringMatching());
+        this.stopMatchBtn.addEventListener('click', () => this.stopStringMatching());
+        
+        // Allow Enter key in the target string input
+        this.targetString.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.startStringMatching();
+            }
+        });
     }
     
     updateDisplay() {
@@ -297,6 +318,123 @@ class NumberViewer {
         
         // Auto-scroll to show latest result
         this.searchResults.scrollTop = this.searchResults.scrollHeight;
+    }
+    
+    // String Matching Methods
+    toggleMatchPanel() {
+        if (this.matchPanel.style.display === 'none' || !this.matchPanel.style.display) {
+            this.matchPanel.style.display = 'block';
+            this.targetString.focus();
+        } else {
+            this.matchPanel.style.display = 'none';
+        }
+    }
+    
+    startStringMatching() {
+        const targetStr = this.targetString.value.trim();
+        if (!targetStr) {
+            this.matchStats.textContent = 'Please enter a target string to match.';
+            return;
+        }
+        
+        this.matchActive = true;
+        this.startMatchBtn.disabled = true;
+        this.matchStats.textContent = `Attempting to match: "${targetStr}"...`;
+        this.matchResults.innerHTML = '';
+        
+        // Run matching asynchronously
+        setTimeout(async () => {
+            try {
+                const matcher = new StringMatcher();
+                const result = await this.runStringMatchingWithProgress(matcher, targetStr);
+                
+                if (result.success) {
+                    this.displayMatchSuccess(result, targetStr);
+                } else {
+                    this.displayMatchFailure(result, targetStr);
+                }
+                
+            } catch (error) {
+                console.error('String matching error:', error);
+                this.matchStats.textContent = 'String matching failed: ' + error.message;
+            }
+            
+            this.matchActive = false;
+            this.startMatchBtn.disabled = false;
+        }, 100);
+    }
+    
+    async runStringMatchingWithProgress(matcher, targetStr) {
+        // Show progress
+        this.matchStats.textContent = `Searching for path to match "${targetStr}"...`;
+        
+        // Try multiple strategies
+        const result = matcher.tryToMatchStringMultipleStrategies(targetStr);
+        
+        // Update progress
+        this.matchStats.textContent = result.success ? 
+            `✓ Successfully matched "${targetStr}"!` : 
+            `✗ Failed to match "${targetStr}"`;
+            
+        return result;
+    }
+    
+    displayMatchSuccess(result, targetStr) {
+        this.matchStats.textContent = `✓ SUCCESS! Found a way to build "${targetStr}" - ${result.reason}`;
+        
+        const successDiv = document.createElement('div');
+        successDiv.style.cssText = 'background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin: 10px 0;';
+        
+        let content = `<h4 style="color: #155724; margin: 0 0 10px 0;">✓ Match Found!</h4>`;
+        content += `<div style="font-family: monospace; margin: 5px 0;"><strong>Target:</strong> "${targetStr}"</div>`;
+        content += `<div style="font-family: monospace; margin: 5px 0;"><strong>Result:</strong> "${result.wordedNumber.numberText}"</div>`;
+        content += `<div style="margin: 5px 0;"><strong>Details:</strong> ${result.reason}</div>`;
+        
+        if (result.path && result.path.length > 0) {
+            content += `<div style="margin: 10px 0;"><strong>Construction Path:</strong></div>`;
+            content += `<div style="font-family: monospace; font-size: 11px; background: #f8f9fa; padding: 8px; border-radius: 3px; max-height: 150px; overflow-y: auto;">`;
+            
+            const pathSteps = [];
+            let currentText = '';
+            for (const segment of result.path) {
+                currentText += segment.text;
+                pathSteps.push(`${segment.id}: "${segment.text}" → "${currentText}"`);
+            }
+            content += pathSteps.join('<br>');
+            content += `</div>`;
+        }
+        
+        successDiv.innerHTML = content;
+        this.matchResults.appendChild(successDiv);
+    }
+    
+    displayMatchFailure(result, targetStr) {
+        this.matchStats.textContent = `✗ No path found to match "${targetStr}" - ${result.reason}`;
+        
+        const failureDiv = document.createElement('div');
+        failureDiv.style.cssText = 'background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 5px; padding: 15px; margin: 10px 0;';
+        
+        let content = `<h4 style="color: #721c24; margin: 0 0 10px 0;">✗ No Match Found</h4>`;
+        content += `<div style="font-family: monospace; margin: 5px 0;"><strong>Target:</strong> "${targetStr}"</div>`;
+        content += `<div style="margin: 5px 0;"><strong>Reason:</strong> ${result.reason}</div>`;
+        content += `<div style="margin: 5px 0;"><strong>Search Attempts:</strong> ${result.attempts || 'unknown'}</div>`;
+        
+        // Add some suggestions
+        content += `<div style="margin: 10px 0; font-size: 13px; color: #721c24;">`;
+        content += `<strong>Suggestions:</strong><br>`;
+        content += `• Try a shorter or simpler string<br>`;
+        content += `• Check if the string contains characters that might not be reachable<br>`;
+        content += `• Consider that some strings might be impossible to construct with WordedNumber rules`;
+        content += `</div>`;
+        
+        failureDiv.innerHTML = content;
+        this.matchResults.appendChild(failureDiv);
+    }
+    
+    stopStringMatching() {
+        this.matchActive = false;
+        this.startMatchBtn.disabled = false;
+        this.matchStats.textContent = 'String matching stopped.';
     }
 }
 
