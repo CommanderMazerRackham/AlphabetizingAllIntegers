@@ -34,7 +34,7 @@ Decimal.set({ precision: divPrecision });
 
 let trueTop = new Decimal(0);
 let trueBottom = new Decimal(1);
-const minPixelHeight = 0.1;
+const minPixelHeight = 0.5;
 let minCoordHeight = new Decimal(0);
 function calcMinCoordHeight() {
     const denominator = trueBottom.minus(trueTop);
@@ -99,67 +99,93 @@ function getDigit(letter, position) {
 //     }
 //     return coord;
 // }
-
-const segmentedWordedNumbers = [new WordedNumber()];
-segmentedWordedNumbers[0].coord = new Decimal(0);
-const completedWordedNumbers = [["Integers:", new Decimal(0)]];
-const extendBatchSize = 5000;
-
-
-function extendWordedNumbers() {
-    const segmentsToExtend = segmentedWordedNumbers.splice(0, Math.min(extendBatchSize, segmentedWordedNumbers.length));
-    for (let i = 0; i < segmentsToExtend.length; i++) {
-        const wn = segmentsToExtend[i];
-        for (const nextSegment of wn.getValidNexts()) {
-            const extension = wn.extend(nextSegment);
-            let newCoord = wn.coord;
-            for (let j = 0; j < nextSegment.text.length; j++) {
-                newCoord = newCoord.plus(getDigit(nextSegment.text[j], wn.numberText.length + j + 1));
+function extendWord(wordNumber, segment) {
+    const extendedWord = wordNumber.extend(segment);
+    let newCoord = wordNumber.coord;
+    for (let i = 0; i < segment.text.length; i++) {
+        newCoord = newCoord.plus(getDigit(segment.text[i], wordNumber.numberText.length + i + 1));
+    }
+    extendedWord.coord = newCoord;
+    return extendedWord;
+}
+function getAllExtensions(wordNumber) {
+    const extensions = [];
+    for (const segment of wordNumber.getValidNexts()) {
+        if (segment.text === "") {
+            const blankExtension = getAllExtensions(extendWord(wordNumber, segment));
+            for (let i = 0; i < blankExtension.length; i++) {
+                extensions.push(blankExtension[i]);
             }
-            extension.coord = newCoord;
-
-            let left = 0, right = completedWordedNumbers.length;
-            while (left < right) {
-                const mid = Math.floor((left + right) / 2);
-                if (extension.coord.lessThan(completedWordedNumbers[mid][1])) {
-                    right = mid;
-                } else {
-                    left = mid + 1;
-                }
-            }
-            const insertionPoint = left;
-            if (extension.isTerminated) {
-                completedWordedNumbers.splice(insertionPoint, 0, [extension.numberText, extension.coord]);
-            } else {
-                if (insertionPoint < completedWordedNumbers.length && 
-                    completedWordedNumbers[insertionPoint][1].minus(minCoordHeight).lessThan(extension.coord)) {
-                    continue; // Skip this extension, it's too close to an existing completed number
-                }
-                segmentedWordedNumbers.push(extension);
-            }
+        } else {
+            extensions.push(extendWord(wordNumber, segment));
         }
     }
-    console.log("Segmented:", segmentedWordedNumbers.length, " Completed:", completedWordedNumbers.length);
+    return extensions;
 }
+
+const maxWordLength = 1000; 
+function getAllWordedNumbers() {
+    const wordedNumbers = [];
+    const unfinishedWordNumbers = [new WordedNumber()];
+    unfinishedWordNumbers[0].coord = new Decimal(0);
+    while (unfinishedWordNumbers.length > 0) {
+        /*
+        Okay, so the bug is based on the fact that when we check all the extensions of a number,
+        we get stuff like "two," and "two hundred". Technically, "two hundred" is alphabetically after
+        "two," even though "two" can go on to become "two vigintillion" later.
+        */
+        
+        const currentWordNumber = unfinishedWordNumbers[unfinishedWordNumbers.length - 1];
+        if (wordedNumbers.length > 0 && wordedNumbers[0][1].minus(currentWordNumber.coord).lessThan(minCoordHeight)) {
+            unfinishedWordNumbers.pop();
+            continue;
+        }
+        if (!currentWordNumber.extensions) {
+            currentWordNumber.extensions = getAllExtensions(currentWordNumber);
+            currentWordNumber.extensions.sort((a, b) => a.coord.minus(b.coord).toNumber());
+        }
+        const nextWordNumber = currentWordNumber.extensions.pop();
+        if (currentWordNumber.extensions.length === 0) {
+            unfinishedWordNumbers.pop();
+        }
+        /*
+        Cases we would terminate are:
+        1) It's already terminated (Add to wordedNumbers)
+        2) It's too close to an existing completed number
+        3) It's already off the screen (not implemented yet) (Add to wordedNumbers)
+
+        */
+        if (nextWordNumber.isTerminated) {
+            wordedNumbers.unshift([nextWordNumber.numberText, nextWordNumber.coord]);
+            continue;
+        }
+        if (wordedNumbers.length > 0 && wordedNumbers[0][1].minus(nextWordNumber.coord).lessThan(minCoordHeight)) {
+            continue;
+        }
+        const lettersHeldOnScreen = Math.ceil(
+            (trueBottom.minus(trueTop).times(canvas.width)).
+            div(wordedNumbers[0][1].minus(nextWordNumber.coord).times(canvas.height))
+            .toNumber());
+        const maxLetterShift = getDigit("a", nextWordNumber.numberText.length - 1)
+        if (lettersHeldOnScreen < nextWordNumber.numberText.length && maxLetterShift < minCoordHeight) {
+            wordedNumbers.unshift([nextWordNumber.numberText, nextWordNumber.coord]);
+            continue;
+        }
+        unfinishedWordNumbers.push(nextWordNumber);
+    }
+    console.log(wordedNumbers);
+    return wordedNumbers;
+}
+
+const title = "Integers:"
 const drawBottom = new Decimal(1);
 function draw() {
     fillBackground();
-    if (completedWordedNumbers.length == 0) {
-        return;
+    const words = getAllWordedNumbers();
+    words.unshift([title, new Decimal(0)]);
+    for (let i = 0; i < words.length - 1; i++) {
+        drawLeftAlignedText(words[i][0], words[i][1], words[i+1][1]);
     }
-    for (let i = 0; i < completedWordedNumbers.length - 1; i++) {
-        drawLeftAlignedText(completedWordedNumbers[i][0], completedWordedNumbers[i][1], completedWordedNumbers[i+1][1]);
-    }
-    drawLeftAlignedText(completedWordedNumbers[completedWordedNumbers.length - 1][0], 
-        completedWordedNumbers[completedWordedNumbers.length - 1][1], drawBottom);
+    drawLeftAlignedText(words[words.length - 1][0], words[words.length - 1][1], drawBottom);
 }
-let maxSteps = 20;
-function step() {
-    extendWordedNumbers();
-    draw();
-    maxSteps--;
-    if (maxSteps > 0) {
-        requestAnimationFrame(step);
-    }
-}
-requestAnimationFrame(step);
+draw();
