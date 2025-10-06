@@ -135,17 +135,7 @@ function extendWordedNumbers() {
                     completedWordedNumbers[insertionPoint][1].minus(minCoordHeight).lessThan(extension.coord)) {
                     continue; // Skip this extension, it's too close to an existing completed number
                 }
-                let left = 0, right = segmentedWordedNumbers.length;
-                while (left < right) {
-                    const mid = Math.floor((left + right) / 2);
-                    if (extension.coord.greaterThan(segmentedWordedNumbers[mid].coord)) {
-                        right = mid;
-                    } else {
-                        left = mid + 1;
-                    }
-                }
-                const segInsertionPoint = left;
-                segmentedWordedNumbers.splice(segInsertionPoint, 0, extension);
+                segmentedWordedNumbers.push(extension);
             }
         }
     }
