@@ -232,6 +232,20 @@ coeffEnd.validNexts = [integerEnd, coeffGetPower];
 powerEnd.validNexts = [integerEnd, powerGetCoeff];
 thousand.validNexts = [integerEnd, powerGetCoeff];
 
+const allPossibleNexts = [
+    // Special flags and control segments
+    ni, powerPseudoStart, powerStart, powerPseudoEnd, powerEnd, powerGetCoeff,
+    sPower, xPower, mPower, nPower, sPowerTre, aPower, iPower,
+    coeffStart, coeffEnd, coeffGetPower, space100, space10,
+    integerStart, integerEnd, zero,
+    
+    // Power segments
+    thousand, ...powerLittles, ...power1, ...power10, ...power100,
+    
+    // Coefficient segments
+    ...coeff100, ...coeff10, ...coeffTeens, ...coeff1
+]
+
 class WordedNumber {
     constructor(
         segmentHead = integerStart, 
@@ -272,7 +286,7 @@ class WordedNumber {
         if (this.isTerminated) {
             return this; // No further extension allowed
         }
-        return new WordedNumber(
+        const nextWord = new WordedNumber(
             segment, 
             [...this.segments, segment], 
             this.numberText,
@@ -280,6 +294,10 @@ class WordedNumber {
             this.isPowerSegment,
             this.largestPower,
             this.currentPower);
+        if (nextWord.getValidNexts().length === 1) {
+            return nextWord.extend(nextWord.getValidNexts()[0]);
+        }
+        return nextWord;
     }
     getValidNexts() {
         if (this._validNextsCache !== null) {

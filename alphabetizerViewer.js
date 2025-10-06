@@ -27,16 +27,16 @@ function fillBackground() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-const ignoreHeight = 0.1;
+const ignoreHeight = 0.0005;
 function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor) {
+    if (bottomHeight - topHeight <= ignoreHeight)  {
+        //Don't draw if it's less than a tenth of a pixel
+        return;
+    }
     const topPixel = topHeight * canvas.height;
     const bottomPixel = bottomHeight * canvas.height;
     const availableHeight = bottomPixel - topPixel;
     let fontSize = availableHeight;
-    if (availableHeight <= ignoreHeight)  {
-        //Don't draw if it's less than a tenth of a pixel
-        return;
-    }
     let font = `${fontSize}px ${fontFamily}`;
     ctx.font = font;
     ctx.fillStyle = color;
@@ -54,8 +54,10 @@ function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, font
     }
     ctx.fillText(text, leftMargin, topPixel);
 }
+const base = 25;
+const letters = " abcdefghilmnopqrstuvwxyz";
 const letterRank = {
-    " ": 0, "a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "j": 10, "k": 11, "l": 12, "m": 13, "n": 14, "o": 15, "p": 16, "q": 17, "r": 18, "s": 19, "t": 20, "u": 21, "v": 22, "w": 23, "x": 24, "y": 25, "z": 26
+    " ": 0, "a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "l": 10, "m": 11, "n": 12, "o": 13, "p": 14, "q": 15, "r": 16, "s": 17, "t": 18, "u": 19, "v": 20, "w": 21, "x": 22, "y": 23, "z": 24
 }
 const spaces        = "                                                                                                ";
 const zzzzzz        = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz";
@@ -89,7 +91,7 @@ function getCoord(word) {
         }
         const rankW = (letterRank[letter] || 0);
         const rankT = (letterRank[getTopLetter(j)] || 0);
-        place /= 27;
+        place /= base;
         if (place == 0) {break;}
         lengthWT += (rankW - rankT) * place;
     }
@@ -98,7 +100,7 @@ function getCoord(word) {
     for (let j = i; j < Math.max(bottomLetters.length, topLetters.length); j++) {
         const rankB = (letterRank[getBottomLetter(j)] || 0);
         const rankT = (letterRank[getTopLetter(j)] || 0);
-        place /= 27;
+        place /= base;
         if (place == 0) {break;}
         lengthBT += (rankB - rankT) * place;
     }
@@ -107,7 +109,6 @@ function getCoord(word) {
 
 const segmentedWordedNumbers = [new WordedNumber()];
 const completedWordedNumbers = [];
-
 const extendBatchSize = 5000;
 function extendWordedNumbers() {
     const segmentsToExtend = segmentedWordedNumbers.splice(0, Math.min(extendBatchSize, segmentedWordedNumbers.length));
@@ -138,9 +139,13 @@ function draw() {
     }
     drawLeftAlignedText(completedWordedNumbers[completedWordedNumbers.length - 1][0], completedWordedNumbers[completedWordedNumbers.length - 1][1], bottom);
 }
+let maxSteps = 60;
 function step() {
     extendWordedNumbers();
     draw();
-    requestAnimationFrame(step);
+    maxSteps--;
+    if (maxSteps > 0) {
+        requestAnimationFrame(step);
+    }
 }
 requestAnimationFrame(step);
