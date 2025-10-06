@@ -294,7 +294,7 @@ class WordedNumber {
             this.isPowerSegment,
             this.largestPower,
             this.currentPower);
-        if (nextWord.getValidNexts().length === 1) {
+        if (nextWord.getValidNexts().length === 1 && nextWord.getValidNexts()[0].text === "") {
             return nextWord.extend(nextWord.getValidNexts()[0]);
         }
         return nextWord;

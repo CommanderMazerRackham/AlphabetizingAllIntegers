@@ -21,21 +21,39 @@ canvas.height = window.innerHeight;
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    calcMinCoordHeight();
+    draw();
 });
 function fillBackground() {
     ctx.fillStyle = bkgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-const ignoreHeight = 0.0005;
+const divPrecision = 20;
+Decimal.set({ precision: divPrecision });
+
+let trueTop = new Decimal(0);
+let trueBottom = new Decimal(1);
+const minPixelHeight = 0.1;
+let minCoordHeight = new Decimal(0);
+function calcMinCoordHeight() {
+    const denominator = trueBottom.minus(trueTop);
+    minCoordHeight = denominator.times(minPixelHeight).div(canvas.height);
+}
+
+calcMinCoordHeight();
 function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor) {
-    if (bottomHeight - topHeight <= ignoreHeight)  {
-        //Don't draw if it's less than a tenth of a pixel
-        return;
+    if (bottomHeight.minus(topHeight).lessThan(minCoordHeight)) {
+        return; // Too small to draw
     }
-    const topPixel = topHeight * canvas.height;
-    const bottomPixel = bottomHeight * canvas.height;
+    const denominator = trueBottom.minus(trueTop);
+    const topPixel = canvas.height * (topHeight.minus(trueTop).div(denominator).toNumber());
+    const bottomPixel = canvas.height * (bottomHeight.minus(trueTop).div(denominator).toNumber());
     const availableHeight = bottomPixel - topPixel;
+    if (availableHeight <= minPixelHeight)  {
+        console.error("Redundant check failed");
+        return; // Too small to draw (should be redundant due to earlier check)
+    }
     let fontSize = availableHeight;
     let font = `${fontSize}px ${fontFamily}`;
     ctx.font = font;
@@ -57,89 +75,95 @@ function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, font
 const base = 25;
 const letters = " abcdefghilmnopqrstuvwxyz";
 const letterRank = {
-    " ": 0, "a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "l": 10, "m": 11, "n": 12, "o": 13, "p": 14, "q": 15, "r": 16, "s": 17, "t": 18, "u": 19, "v": 20, "w": 21, "x": 22, "y": 23, "z": 24
+    " ": 0, "a": 1, "b": 2, "c": 3, "d": 4, "e": 5, "f": 6, "g": 7, "h": 8, "i": 9, "l": 10, 
+    "m": 11, "n": 12, "o": 13, "p": 14, "q": 15, "r": 16, "s": 17, "t": 18, "u": 19, "v": 20, 
+    "w": 21, "x": 22, "y": 23, "z": 24
 }
-const spaces        = "                                                                                                ";
-const zzzzzz        = "zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz";
-let topLetters      = spaces;
-let bottomLetters   = zzzzzz;
-function getTopLetter(index) {
-    if (index < topLetters.length) {
-        return topLetters[index];
-    } else {
-        return " ";
-    }
-}
-function getBottomLetter(index) {
-    if (index < bottomLetters.length) {
-        return bottomLetters[index];
-    } else {
-        return " ";
-    }
-}
-function getCoord(word) {
-    let i = 0;
-    while (i < word.length && word[i] === getTopLetter(i) && word[i] === getBottomLetter(i)) {
-        i++;
-    }
-    let lengthWT = 0.0;
-    let place = 1.0;
-    for (let j = i; j < Math.max(word.length, topLetters.length); j++) {
-        let letter = " ";
-        if (j < word.length) {
-            letter = word[j].toLowerCase();
+const basePow = [new Decimal(1)]; 
+const digitDict = [[]];
+//NOTE: Indexing is a bit weird here, because we want 1/base to be at position 1, not position 0
+function getDigit(letter, position) {
+    while (basePow.length <= position) {
+        basePow.push(basePow[basePow.length - 1].div(base));
+        digitDict.push([]);
+        for (let i = 0; i < base; i++) {
+            digitDict[digitDict.length - 1].push(basePow[basePow.length - 1].times(i));
         }
-        const rankW = (letterRank[letter] || 0);
-        const rankT = (letterRank[getTopLetter(j)] || 0);
-        place /= base;
-        if (place == 0) {break;}
-        lengthWT += (rankW - rankT) * place;
     }
-    let lengthBT = 0.0;
-    place = 1.0;
-    for (let j = i; j < Math.max(bottomLetters.length, topLetters.length); j++) {
-        const rankB = (letterRank[getBottomLetter(j)] || 0);
-        const rankT = (letterRank[getTopLetter(j)] || 0);
-        place /= base;
-        if (place == 0) {break;}
-        lengthBT += (rankB - rankT) * place;
-    }
-    return lengthWT / lengthBT;
+    return digitDict[position][letterRank[letter] || 0];
 }
+// function getCoord(word) {
+//     let coord = new Decimal(0);
+//     for (let i = 0; i < word.length; i++) {
+//         coord = coord.plus(getDigit(word[i].toLowerCase(), i+1));
+//     }
+//     return coord;
+// }
 
 const segmentedWordedNumbers = [new WordedNumber()];
-const completedWordedNumbers = [];
+segmentedWordedNumbers[0].coord = new Decimal(0);
+const completedWordedNumbers = [["Integers:", new Decimal(0)]];
 const extendBatchSize = 5000;
+
+
 function extendWordedNumbers() {
     const segmentsToExtend = segmentedWordedNumbers.splice(0, Math.min(extendBatchSize, segmentedWordedNumbers.length));
     for (let i = 0; i < segmentsToExtend.length; i++) {
         const wn = segmentsToExtend[i];
         for (const nextSegment of wn.getValidNexts()) {
             const extension = wn.extend(nextSegment);
+            let newCoord = wn.coord;
+            for (let j = 0; j < nextSegment.text.length; j++) {
+                newCoord = newCoord.plus(getDigit(nextSegment.text[j], wn.numberText.length + j + 1));
+            }
+            extension.coord = newCoord;
+
+            let left = 0, right = completedWordedNumbers.length;
+            while (left < right) {
+                const mid = Math.floor((left + right) / 2);
+                if (extension.coord.lessThan(completedWordedNumbers[mid][1])) {
+                    right = mid;
+                } else {
+                    left = mid + 1;
+                }
+            }
+            const insertionPoint = left;
             if (extension.isTerminated) {
-                completedWordedNumbers.push([extension.numberText, getCoord(extension.numberText)]);
+                completedWordedNumbers.splice(insertionPoint, 0, [extension.numberText, extension.coord]);
             } else {
-                segmentedWordedNumbers.push(extension);
+                if (insertionPoint < completedWordedNumbers.length && 
+                    completedWordedNumbers[insertionPoint][1].minus(minCoordHeight).lessThan(extension.coord)) {
+                    continue; // Skip this extension, it's too close to an existing completed number
+                }
+                let left = 0, right = segmentedWordedNumbers.length;
+                while (left < right) {
+                    const mid = Math.floor((left + right) / 2);
+                    if (extension.coord.greaterThan(segmentedWordedNumbers[mid].coord)) {
+                        right = mid;
+                    } else {
+                        left = mid + 1;
+                    }
+                }
+                const segInsertionPoint = left;
+                segmentedWordedNumbers.splice(segInsertionPoint, 0, extension);
             }
         }
     }
     console.log("Segmented:", segmentedWordedNumbers.length, " Completed:", completedWordedNumbers.length);
 }
-const title = ["Integers:", 0];
-let bottom = 1.0;
+const drawBottom = new Decimal(1);
 function draw() {
     fillBackground();
-    completedWordedNumbers.sort((a, b) => a[1] - b[1]);
     if (completedWordedNumbers.length == 0) {
         return;
     }
-    drawLeftAlignedText(title[0], title[1], completedWordedNumbers[0][1]);
     for (let i = 0; i < completedWordedNumbers.length - 1; i++) {
         drawLeftAlignedText(completedWordedNumbers[i][0], completedWordedNumbers[i][1], completedWordedNumbers[i+1][1]);
     }
-    drawLeftAlignedText(completedWordedNumbers[completedWordedNumbers.length - 1][0], completedWordedNumbers[completedWordedNumbers.length - 1][1], bottom);
+    drawLeftAlignedText(completedWordedNumbers[completedWordedNumbers.length - 1][0], 
+        completedWordedNumbers[completedWordedNumbers.length - 1][1], drawBottom);
 }
-let maxSteps = 60;
+let maxSteps = 20;
 function step() {
     extendWordedNumbers();
     draw();
