@@ -21,7 +21,7 @@ canvas.height = window.innerHeight;
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
-    calcMinCoordHeight();
+    calcViewDependentVars();
     draw();
 });
 function fillBackground() {
@@ -29,19 +29,18 @@ function fillBackground() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
-const divPrecision = 20;
-Decimal.set({ precision: divPrecision });
-
 let trueTop = new Decimal(0);
 let trueBottom = new Decimal(1);
 const minPixelHeight = 0.5;
 let minCoordHeight = new Decimal(0);
-function calcMinCoordHeight() {
+const strictness = 0.08; //0.8 seems to be good
+function calcViewDependentVars() {
     const denominator = trueBottom.minus(trueTop);
     minCoordHeight = denominator.times(minPixelHeight).div(canvas.height);
+    Decimal.set({ precision: Math.ceil(strictness * canvas.width / minPixelHeight) });
 }
+calcViewDependentVars();
 
-calcMinCoordHeight();
 function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor) {
     if (bottomHeight.minus(topHeight).lessThan(minCoordHeight)) {
         return; // Too small to draw
@@ -82,12 +81,17 @@ const letterRank = {
 const basePow = [new Decimal(1)]; 
 const digitDict = [[]];
 //NOTE: Indexing is a bit weird here, because we want 1/base to be at position 1, not position 0
-function getDigit(letter, position) {
+function getBasePower(position) {
     while (basePow.length <= position) {
         basePow.push(basePow[basePow.length - 1].div(base));
+    }
+    return basePow[position];
+}
+function getDigit(letter, position) {
+    while (basePow.length <= position) {
         digitDict.push([]);
         for (let i = 0; i < base; i++) {
-            digitDict[digitDict.length - 1].push(basePow[basePow.length - 1].times(i));
+            digitDict[digitDict.length - 1].push(getBasePower(digitDict.length - 1).times(i));
         }
     }
     return digitDict[position][letterRank[letter] || 0];
@@ -123,57 +127,70 @@ function getAllExtensions(wordNumber) {
     return extensions;
 }
 
-const maxWordLength = 1000; 
+function getWordedNumber(upperLimit = new Decimal(1)) {
+    const words = [new WordedNumber()];
+    words[0].coord = new Decimal(0);
+    // function upper(word) { return word.coord.plus(basePow[word.numberText.length]);}
+    function appearsIn(wordLong, wordShort) { return wordLong.numberText.indexOf(wordShort.numberText) !== -1;}
+    while (true) {
+        let word = null;
+        for (let i = 0; i < words.length; i++) {
+            if (!words[i].isTerminated) {
+                word = words.splice(i, 1)[0];
+                break;
+            }
+        }
+        if (!word) {
+            return null; 
+        }
+        const extensions = getAllExtensions(word);
+        for (let i = 0; i < extensions.length; i++) {
+            if (extensions[i].coord.lte(upperLimit)) {
+                words.push(extensions[i]);
+            }
+        }
+        let maxWord = {coord: new Decimal(0)};
+        for (let i = 0; i < words.length; i++) {
+            if (words[i].coord.gte(maxWord.coord)) {
+                maxWord = words[i];
+            }
+        }
+        for (let i = 0; i < words.length; i++) {
+            if (!appearsIn(maxWord, words[i])) {
+                words.splice(i, 1);
+                i--;
+            }
+        }
+        words.sort((a, b) => a.coord.minus(b.coord).toNumber());
+        if (words.length !== 1) {
+            continue;
+        }
+        if (words[0].isTerminated) {
+            // console.log("Terminated:", words[0].numberText);
+            return [words[0].numberText, words[0].coord];
+        }
+        //We are assuming that the upperLimit is the bottom of the word
+        const lettersHeldOnScreen = Math.ceil(
+            ((trueBottom.minus(trueTop).times(canvas.width).times(4)).
+            div((upperLimit.plus(minCoordHeight)).minus(words[0].coord).times(canvas.height)))
+            .toNumber());
+        const maxLetterShift = getBasePower(words[0].numberText.length);
+        if (lettersHeldOnScreen < words[0].numberText.length && maxLetterShift.lessThan(minCoordHeight)) {
+            // console.log("Too big:", words[0].numberText, words[0].coord.toString(), upperLimit.toString());
+            return [words[0].numberText, words[0].coord];
+        }
+    }
+}
+
 function getAllWordedNumbers() {
     const wordedNumbers = [];
-    const unfinishedWordNumbers = [new WordedNumber()];
-    unfinishedWordNumbers[0].coord = new Decimal(0);
-    while (unfinishedWordNumbers.length > 0) {
-        /*
-        Okay, so the bug is based on the fact that when we check all the extensions of a number,
-        we get stuff like "two," and "two hundred". Technically, "two hundred" is alphabetically after
-        "two," even though "two" can go on to become "two vigintillion" later.
-        */
-        
-        const currentWordNumber = unfinishedWordNumbers[unfinishedWordNumbers.length - 1];
-        if (wordedNumbers.length > 0 && wordedNumbers[0][1].minus(currentWordNumber.coord).lessThan(minCoordHeight)) {
-            unfinishedWordNumbers.pop();
-            continue;
-        }
-        if (!currentWordNumber.extensions) {
-            currentWordNumber.extensions = getAllExtensions(currentWordNumber);
-            currentWordNumber.extensions.sort((a, b) => a.coord.minus(b.coord).toNumber());
-        }
-        const nextWordNumber = currentWordNumber.extensions.pop();
-        if (currentWordNumber.extensions.length === 0) {
-            unfinishedWordNumbers.pop();
-        }
-        /*
-        Cases we would terminate are:
-        1) It's already terminated (Add to wordedNumbers)
-        2) It's too close to an existing completed number
-        3) It's already off the screen (not implemented yet) (Add to wordedNumbers)
-
-        */
-        if (nextWordNumber.isTerminated) {
-            wordedNumbers.unshift([nextWordNumber.numberText, nextWordNumber.coord]);
-            continue;
-        }
-        if (wordedNumbers.length > 0 && wordedNumbers[0][1].minus(nextWordNumber.coord).lessThan(minCoordHeight)) {
-            continue;
-        }
-        const lettersHeldOnScreen = Math.ceil(
-            (trueBottom.minus(trueTop).times(canvas.width)).
-            div(wordedNumbers[0][1].minus(nextWordNumber.coord).times(canvas.height))
-            .toNumber());
-        const maxLetterShift = getDigit("a", nextWordNumber.numberText.length - 1)
-        if (lettersHeldOnScreen < nextWordNumber.numberText.length && maxLetterShift < minCoordHeight) {
-            wordedNumbers.unshift([nextWordNumber.numberText, nextWordNumber.coord]);
-            continue;
-        }
-        unfinishedWordNumbers.push(nextWordNumber);
+    let limit = new Decimal(1);
+    while (true) {
+        const nextWord = getWordedNumber(limit);
+        if (!nextWord) break;
+        wordedNumbers.unshift(nextWord);
+        limit = nextWord[1].minus(minCoordHeight);
     }
-    console.log(wordedNumbers);
     return wordedNumbers;
 }
 
