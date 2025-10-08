@@ -31,9 +31,9 @@ function fillBackground() {
 
 let trueTop = new Decimal(0);
 let trueBottom = new Decimal(1);
-const minPixelHeight = 0.5;
+const minPixelHeight = 1.0;
 let minCoordHeight = new Decimal(0);
-const strictness = 0.08; //0.8 seems to be good
+const strictness = 0.1; //0.5 seems to be good
 function calcViewDependentVars() {
     const denominator = trueBottom.minus(trueTop);
     minCoordHeight = denominator.times(minPixelHeight).div(canvas.height);
@@ -41,7 +41,7 @@ function calcViewDependentVars() {
 }
 calcViewDependentVars();
 
-function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor) {
+function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor, drawLine = false) {
     if (bottomHeight.minus(topHeight).lessThan(minCoordHeight)) {
         return; // Too small to draw
     }
@@ -49,27 +49,24 @@ function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, font
     const topPixel = canvas.height * (topHeight.minus(trueTop).div(denominator).toNumber());
     const bottomPixel = canvas.height * (bottomHeight.minus(trueTop).div(denominator).toNumber());
     const availableHeight = bottomPixel - topPixel;
-    if (availableHeight <= minPixelHeight)  {
-        console.error("Redundant check failed");
-        return; // Too small to draw (should be redundant due to earlier check)
-    }
     let fontSize = availableHeight;
     let font = `${fontSize}px ${fontFamily}`;
     ctx.font = font;
     ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    const metrics = ctx.measureText(text);
-    let actualHeight = fontSize;
-    if (metrics.fontBoundingBoxAscent !== undefined && metrics.fontBoundingBoxDescent !== undefined) {
-        actualHeight = metrics.fontBoundingBoxAscent + metrics.fontBoundingBoxDescent;
-    }
-    if (actualHeight !== availableHeight) {
-        fontSize = (fontSize * availableHeight) / actualHeight;
-        font = `${fontSize}px ${fontFamily}`;
-        ctx.font = font;
-    }
+    // text = text.toUpperCase();
     ctx.fillText(text, leftMargin, topPixel);
+    
+    // Only draw the line when fractal details are being skipped
+    if (drawLine) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, topPixel);
+        ctx.lineTo(canvas.width, topPixel);
+        ctx.stroke();
+    }
 }
 const base = 25;
 const letters = " abcdefghilmnopqrstuvwxyz";
@@ -126,12 +123,64 @@ function getAllExtensions(wordNumber) {
     }
     return extensions;
 }
+function appearsIn(wordLong, wordShort) { return wordLong.numberText.indexOf(wordShort.numberText) !== -1;}
 
-function getWordedNumber(upperLimit = new Decimal(1)) {
+function getWordedNumberAbove(lowerLimit = new Decimal(0)) {
     const words = [new WordedNumber()];
     words[0].coord = new Decimal(0);
-    // function upper(word) { return word.coord.plus(basePow[word.numberText.length]);}
-    function appearsIn(wordLong, wordShort) { return wordLong.numberText.indexOf(wordShort.numberText) !== -1;}
+    while (true) {
+        let word = null;
+        for (let i = 0; i < words.length; i++) {
+            if (!words[i].isTerminated) {
+                word = words.splice(i, 1)[0];
+                break;
+            }
+        }
+        if (!word) {
+            return null; 
+        }
+        const extensions = getAllExtensions(word);
+        for (let i = 0; i < extensions.length; i++) {
+            if (extensions[i].coord.gte(lowerLimit)) {
+                words.push(extensions[i]);
+            }
+        }
+        let minWord = {coord: new Decimal(1)};
+        for (let i = 0; i < words.length; i++) {
+            if (words[i].coord.lte(minWord.coord)) {
+                minWord = words[i];
+            }
+        }
+        for (let i = 0; i < words.length; i++) {
+            if (!appearsIn(minWord, words[i])) {
+                words.splice(i, 1);
+                i--;
+            }
+        }
+        words.sort((a, b) => a.coord.minus(b.coord).toNumber());
+        if (words.length !== 1) {
+            continue;
+        }
+        if (words[0].isTerminated) {
+            // console.log("Terminated:", words[0].numberText);
+            return [words[0].numberText, words[0].coord, false];
+        }
+        //We are assuming that the lowerLimit is the top of the word
+        const lettersHeldOnScreen = Math.ceil(
+            ((trueBottom.minus(trueTop).times(canvas.width).times(4)).
+            div((words[0].coord.plus(minCoordHeight)).minus(lowerLimit).times(canvas.height)))
+            .toNumber());
+        const maxLetterShift = getBasePower(words[0].numberText.length);
+        if (lettersHeldOnScreen < words[0].numberText.length && maxLetterShift.lessThan(minCoordHeight)) {
+            // console.log("Too big:", words[0].numberText, words[0].coord.toString(), upperLimit.toString());
+            return [words[0].numberText, words[0].coord, true]; // true = fractal details skipped
+        }
+    }
+}
+
+function getWordedNumberUnder(upperLimit = new Decimal(1)) {
+    const words = [new WordedNumber()];
+    words[0].coord = new Decimal(0);
     while (true) {
         let word = null;
         for (let i = 0; i < words.length; i++) {
@@ -167,7 +216,7 @@ function getWordedNumber(upperLimit = new Decimal(1)) {
         }
         if (words[0].isTerminated) {
             // console.log("Terminated:", words[0].numberText);
-            return [words[0].numberText, words[0].coord];
+            return [words[0].numberText, words[0].coord, false];
         }
         //We are assuming that the upperLimit is the bottom of the word
         const lettersHeldOnScreen = Math.ceil(
@@ -177,32 +226,94 @@ function getWordedNumber(upperLimit = new Decimal(1)) {
         const maxLetterShift = getBasePower(words[0].numberText.length);
         if (lettersHeldOnScreen < words[0].numberText.length && maxLetterShift.lessThan(minCoordHeight)) {
             // console.log("Too big:", words[0].numberText, words[0].coord.toString(), upperLimit.toString());
-            return [words[0].numberText, words[0].coord];
+            return [words[0].numberText, words[0].coord, true]; // true = fractal details skipped
         }
     }
 }
 
-function getAllWordedNumbers() {
+function getAllWordedNumbers(lowerLimit = new Decimal(0), upperLimit = new Decimal(1)) {
     const wordedNumbers = [];
-    let limit = new Decimal(1);
     while (true) {
-        const nextWord = getWordedNumber(limit);
+        const nextWord = getWordedNumberUnder(upperLimit);
         if (!nextWord) break;
         wordedNumbers.unshift(nextWord);
-        limit = nextWord[1].minus(minCoordHeight);
+        upperLimit = nextWord[1].minus(minCoordHeight);
+        if (nextWord[1].lt(lowerLimit)) break;
     }
     return wordedNumbers;
 }
 
 const title = "Integers:"
 const drawBottom = new Decimal(1);
+let words = [];
+function calcWords() {
+    words = getAllWordedNumbers(trueTop, trueBottom);
+    words.unshift([title, new Decimal(0), false]);
+    lastWord = getWordedNumberAbove(trueBottom);
+    if (lastWord) words.push(lastWord);
+    //Logging
+    let l = "###\n\n"
+    for (let i = 0; i < words.length; i++) {
+        l += words[i][0].substring(0, 50) + " " + words[i][2] + "\n";
+    }
+    l += "\n\n###";
+    console.log(l);
+}
+
 function draw() {
     fillBackground();
-    const words = getAllWordedNumbers();
-    words.unshift([title, new Decimal(0)]);
+
     for (let i = 0; i < words.length - 1; i++) {
-        drawLeftAlignedText(words[i][0], words[i][1], words[i+1][1]);
+        // Draw line only if fractal details are being skipped
+        const shouldDrawLine = words[i].length > 2 && words[i][2] === true;
+        drawLeftAlignedText(words[i][0], words[i][1], words[i+1][1], 0, "monospace", txtColor, shouldDrawLine);
     }
-    drawLeftAlignedText(words[words.length - 1][0], words[words.length - 1][1], drawBottom);
+    if (words[words.length - 1][0] == "zero") {
+        const shouldDrawLine = words[words.length - 1].length > 2 && words[words.length - 1][2] === true;
+        drawLeftAlignedText(words[words.length - 1][0], words[words.length - 1][1], drawBottom, 0, "monospace", txtColor, shouldDrawLine);
+    }
 }
+calcWords();
 draw();
+
+function zoom(lowerLimit, upperLimit) {
+    trueTop = lowerLimit;
+    trueBottom = upperLimit;
+    calcViewDependentVars();
+    calcWords();
+    draw();
+}
+function pixelToCoord(pixelY) {
+    const denominator = trueBottom.minus(trueTop);
+    const relativeY = pixelY / canvas.height;
+    return trueTop.plus(denominator.times(relativeY));
+}
+let isDragging = false;
+let dragStartY = 0;
+let dragStartCoord = null;
+let dragIgnoreWidth = 10; // Pixels
+canvas.addEventListener('mousedown', (e) => {
+    isDragging = true;
+    dragStartY = e.offsetY;
+    dragStartCoord = pixelToCoord(dragStartY);
+});
+canvas.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    // Visual feedback here (draw selection rectangle)
+});
+canvas.addEventListener('mouseup', (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    const dragEndY = e.offsetY;
+    if (Math.abs(dragEndY - dragStartY) < dragIgnoreWidth) {
+        return; // Ignore small drags
+    }
+    const dragEndCoord = pixelToCoord(dragEndY);
+    const topCoord = dragStartCoord.lt(dragEndCoord) ? dragStartCoord : dragEndCoord;
+    const bottomCoord = dragStartCoord.gt(dragEndCoord) ? dragStartCoord : dragEndCoord;
+    zoom(topCoord, bottomCoord);
+});
+canvas.addEventListener('mouseleave', (e) => {
+    isDragging = false;
+});
+
