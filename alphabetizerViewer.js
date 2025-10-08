@@ -69,13 +69,14 @@ function calcViewDependentVars() {
 }
 calcViewDependentVars();
 
+const fontScale = 1.15;
 function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor, drawLine = false) {
     if (bottomHeight.minus(topHeight).lessThan(minCoordHeight)) return; 
     const denominator = trueBottom.minus(trueTop);
     const topPixel = canvas.height * (topHeight.minus(trueTop).div(denominator).toNumber());
     const bottomPixel = canvas.height * (bottomHeight.minus(trueTop).div(denominator).toNumber());
     const availableHeight = bottomPixel - topPixel;
-    let fontSize = availableHeight;
+    let fontSize = availableHeight * fontScale;
     let font = `${fontSize}px ${fontFamily}`;
     ctx.font = font;
     ctx.textAlign = 'left';
@@ -128,13 +129,13 @@ function getDigit(letter, position) {
     }
     return digitDict[position][letterRank[letter] || 0];
 }
-// function getCoord(word) {
-//     let coord = new Decimal(0);
-//     for (let i = 0; i < word.length; i++) {
-//         coord = coord.plus(getDigit(word[i].toLowerCase(), i+1));
-//     }
-//     return coord;
-// }
+function getCoord(word) {
+    let coord = new Decimal(0);
+    for (let i = 0; i < word.length; i++) {
+        coord = coord.plus(getDigit(word[i].toLowerCase(), i+1));
+    }
+    return coord;
+}
 function extendWord(wordNumber, segment) {
     const extendedWord = wordNumber.extend(segment);
     let newCoord = wordNumber.coord;
@@ -284,13 +285,13 @@ function calcWords() {
     words.unshift([title, new Decimal(0), false]);
     lastWord = getWordedNumberAbove(trueBottom);
     if (lastWord) words.push(lastWord);
-    //Logging
-    let l = "###\n\n"
-    for (let i = 0; i < words.length; i++) {
-        l += words[i][0].substring(0, 50) + " " + words[i][2] + "\n";
-    }
-    l += "\n\n###";
-    console.log(l);
+    // //Logging
+    // let l = "###\n\n"
+    // for (let i = 0; i < words.length; i++) {
+    //     l += words[i][0].substring(0, 50) + " " + words[i][2] + "\n";
+    // }
+    // l += "\n\n###";
+    // console.log(l);
 }
 
 function draw() {
@@ -315,12 +316,21 @@ function normalizeBounds() {
         trueBottom = trueBottom.minus(trueTop);
         trueTop = new Decimal(0);
         if (trueBottom.gt(1)) trueBottom = new Decimal(1);
+    } else if (trueBottom.gt(1)) {
+        trueTop = trueTop.minus(trueBottom);
+        trueBottom = new Decimal(1);
+        if (trueTop.lt(0)) trueTop = new Decimal(0);
     }
 }
-
-function zoom(lowerLimit, upperLimit) {
+const histZoomTop = [new Decimal(0)];
+const histZoomBottom = [new Decimal(1)];
+function zoom(lowerLimit, upperLimit, log = true) {
     trueTop = lowerLimit;
     trueBottom = upperLimit;
+    if (log) {
+        histZoomTop.push(trueTop);
+        histZoomBottom.push(trueBottom);
+    }
     normalizeBounds();
     calcViewDependentVars();
     calcWords();
@@ -366,24 +376,31 @@ canvas.addEventListener('mouseleave', (e) => {
 const zoomWheelFactor = 1.4; // Zoom in/out factor per wheel event
 canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    
     const mouseY = e.offsetY;
     const mouseCoord = pixelToCoord(mouseY);
-    
-    // Zoom factor - positive deltaY means zoom out, negative means zoom in
     const zoomFactor = e.deltaY > 0 ? zoomWheelFactor : 1 / zoomWheelFactor;
-    
-    // Calculate current view range
     const currentRange = trueBottom.minus(trueTop);
     const newRange = currentRange.times(zoomFactor);
-    
-    // Calculate how much to shift the view to keep mouse position centered
     const mouseRelativePosition = mouseCoord.minus(trueTop).div(currentRange);
-    
-    // Calculate new bounds
     const newTop = mouseCoord.minus(newRange.times(mouseRelativePosition));
     const newBottom = newTop.plus(newRange);
-    
-    zoom(newTop, newBottom);
+    zoom(newTop, newBottom, false);
+});
+function zoomToWord(word) {
+    const wordTop = getCoord(word);
+    const wordBottom = wordTop.plus(getBasePower(word.length + 1));
+    zoom(wordTop, wordBottom);
+}
+
+// Ctrl+Z to undo zoom
+document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.key === 'z' && histZoomTop.length > 1) {
+        e.preventDefault();
+        histZoomTop.pop();
+        histZoomBottom.pop();
+        const prevTop = histZoomTop[histZoomTop.length - 1];
+        const prevBottom = histZoomBottom[histZoomBottom.length - 1];
+        zoom(prevTop, prevBottom, false);
+    }
 });
 
