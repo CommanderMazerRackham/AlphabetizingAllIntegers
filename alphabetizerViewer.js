@@ -2,6 +2,7 @@ const canvas = document.getElementById('alphabetizerCanvas');
 
 const txtColor = "#FF8C28";
 const bkgColor = "#0C0C0C";
+const grdColor = "#AAAAAA";
 
 // Remove default page margins/padding and prevent scrollbars
 document.body.style.margin = '0';
@@ -31,19 +32,28 @@ function fillBackground() {
     ctx.fillStyle = bkgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     const lineExp = - trueBottom.minus(trueTop).minus(minCoordHeight).e;
-    lineLevel = trueTop.toDecimalPlaces(lineExp, Decimal.ROUND_DOWN);
+    let lineLevel = trueTop.toDecimalPlaces(lineExp, Decimal.ROUND_DOWN);
+    let lineInc = canvas.height * getTenPower(lineExp).div(trueBottom.minus(trueTop)).toNumber();
     while (lineLevel.lt(trueTop)) {
         lineLevel = lineLevel.plus(getTenPower(lineExp));
     }
-    while (lineLevel.lte(trueBottom)) {
-        const yPixel = canvas.height * (lineLevel.minus(trueTop).div(trueBottom.minus(trueTop)).toNumber());
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 0.1;
+    let lineRow = canvas.height * (lineLevel.minus(trueTop).div(trueBottom.minus(trueTop)).toNumber());
+    ctx.strokeStyle = grdColor;
+    ctx.lineWidth = 0.1;
+    while (lineRow < canvas.height) {
         ctx.beginPath();
-        ctx.moveTo(0, yPixel);
-        ctx.lineTo(canvas.width, yPixel);
+        ctx.moveTo(0, lineRow);
+        ctx.lineTo(canvas.width, lineRow);
         ctx.stroke();
-        lineLevel = lineLevel.plus(getTenPower(lineExp));
+        lineRow += lineInc;
+    }
+    let lineCol = lineInc;
+    while (lineCol < canvas.width) {
+        ctx.beginPath();
+        ctx.moveTo(lineCol, 0);
+        ctx.lineTo(lineCol, canvas.height);
+        ctx.stroke();
+        lineCol += lineInc;
     }
 }
 
@@ -51,7 +61,7 @@ let trueTop = new Decimal(0);
 let trueBottom = new Decimal(1);
 const minPixelHeight = 1.0;
 let minCoordHeight = new Decimal(0);
-const strictness = 0.1; //0.5 seems to be good
+const strictness = 0.5; //0.5 seems to be good
 function calcViewDependentVars() {
     const denominator = trueBottom.minus(trueTop);
     minCoordHeight = denominator.times(minPixelHeight).div(canvas.height);
@@ -60,9 +70,7 @@ function calcViewDependentVars() {
 calcViewDependentVars();
 
 function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor, drawLine = false) {
-    if (bottomHeight.minus(topHeight).lessThan(minCoordHeight)) {
-        return; // Too small to draw
-    }
+    if (bottomHeight.minus(topHeight).lessThan(minCoordHeight)) return; 
     const denominator = trueBottom.minus(trueTop);
     const topPixel = canvas.height * (topHeight.minus(trueTop).div(denominator).toNumber());
     const bottomPixel = canvas.height * (bottomHeight.minus(trueTop).div(denominator).toNumber());
@@ -70,13 +78,15 @@ function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, font
     let fontSize = availableHeight;
     let font = `${fontSize}px ${fontFamily}`;
     ctx.font = font;
-    ctx.fillStyle = color;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    // text = text.toUpperCase();
+    ctx.shadowColor = color;
+    ctx.shadowBlur = fontSize * 0.5;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = color;
     ctx.fillText(text, leftMargin, topPixel);
-    
-    // Only draw the line when fractal details are being skipped
+    ctx.shadowBlur = 0;
     if (drawLine) {
         ctx.strokeStyle = color;
         ctx.lineWidth = 1;
@@ -295,13 +305,23 @@ function draw() {
         const shouldDrawLine = words[words.length - 1].length > 2 && words[words.length - 1][2] === true;
         drawLeftAlignedText(words[words.length - 1][0], words[words.length - 1][1], drawBottom, 0, "monospace", txtColor, shouldDrawLine);
     }
+    requestAnimationFrame(() => {});
 }
 calcWords();
 draw();
 
+function normalizeBounds() {
+    if (trueTop.lt(0)) {
+        trueBottom = trueBottom.minus(trueTop);
+        trueTop = new Decimal(0);
+        if (trueBottom.gt(1)) trueBottom = new Decimal(1);
+    }
+}
+
 function zoom(lowerLimit, upperLimit) {
     trueTop = lowerLimit;
     trueBottom = upperLimit;
+    normalizeBounds();
     calcViewDependentVars();
     calcWords();
     draw();
@@ -341,5 +361,29 @@ canvas.addEventListener('mouseup', (e) => {
 });
 canvas.addEventListener('mouseleave', (e) => {
     isDragging = false;
+});
+
+const zoomWheelFactor = 1.4; // Zoom in/out factor per wheel event
+canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    
+    const mouseY = e.offsetY;
+    const mouseCoord = pixelToCoord(mouseY);
+    
+    // Zoom factor - positive deltaY means zoom out, negative means zoom in
+    const zoomFactor = e.deltaY > 0 ? zoomWheelFactor : 1 / zoomWheelFactor;
+    
+    // Calculate current view range
+    const currentRange = trueBottom.minus(trueTop);
+    const newRange = currentRange.times(zoomFactor);
+    
+    // Calculate how much to shift the view to keep mouse position centered
+    const mouseRelativePosition = mouseCoord.minus(trueTop).div(currentRange);
+    
+    // Calculate new bounds
+    const newTop = mouseCoord.minus(newRange.times(mouseRelativePosition));
+    const newBottom = newTop.plus(newRange);
+    
+    zoom(newTop, newBottom);
 });
 
