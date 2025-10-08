@@ -24,9 +24,27 @@ window.addEventListener('resize', () => {
     calcViewDependentVars();
     draw();
 });
+
+
+
 function fillBackground() {
     ctx.fillStyle = bkgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const lineExp = - trueBottom.minus(trueTop).minus(minCoordHeight).e;
+    lineLevel = trueTop.toDecimalPlaces(lineExp, Decimal.ROUND_DOWN);
+    while (lineLevel.lt(trueTop)) {
+        lineLevel = lineLevel.plus(getTenPower(lineExp));
+    }
+    while (lineLevel.lte(trueBottom)) {
+        const yPixel = canvas.height * (lineLevel.minus(trueTop).div(trueBottom.minus(trueTop)).toNumber());
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 0.1;
+        ctx.beginPath();
+        ctx.moveTo(0, yPixel);
+        ctx.lineTo(canvas.width, yPixel);
+        ctx.stroke();
+        lineLevel = lineLevel.plus(getTenPower(lineExp));
+    }
 }
 
 let trueTop = new Decimal(0);
@@ -76,6 +94,7 @@ const letterRank = {
     "w": 21, "x": 22, "y": 23, "z": 24
 }
 const basePow = [new Decimal(1)]; 
+const tenPow = [new Decimal(1)];
 const digitDict = [[]];
 //NOTE: Indexing is a bit weird here, because we want 1/base to be at position 1, not position 0
 function getBasePower(position) {
@@ -83,6 +102,12 @@ function getBasePower(position) {
         basePow.push(basePow[basePow.length - 1].div(base));
     }
     return basePow[position];
+}
+function getTenPower(position) {
+    while (tenPow.length <= position) {
+        tenPow.push(tenPow[tenPow.length - 1].div(10));
+    }
+    return tenPow[position];
 }
 function getDigit(letter, position) {
     while (basePow.length <= position) {
@@ -165,10 +190,10 @@ function getWordedNumberAbove(lowerLimit = new Decimal(0)) {
             // console.log("Terminated:", words[0].numberText);
             return [words[0].numberText, words[0].coord, false];
         }
-        //We are assuming that the lowerLimit is the top of the word
+        //We are assuming that the upperLimit is the bottom of the word
         const lettersHeldOnScreen = Math.ceil(
             ((trueBottom.minus(trueTop).times(canvas.width).times(4)).
-            div((words[0].coord.plus(minCoordHeight)).minus(lowerLimit).times(canvas.height)))
+            div((words[0].coord).minus(lowerLimit.minus(minCoordHeight)).times(canvas.height)))
             .toNumber());
         const maxLetterShift = getBasePower(words[0].numberText.length);
         if (lettersHeldOnScreen < words[0].numberText.length && maxLetterShift.lessThan(minCoordHeight)) {
@@ -231,23 +256,21 @@ function getWordedNumberUnder(upperLimit = new Decimal(1)) {
     }
 }
 
-function getAllWordedNumbers(lowerLimit = new Decimal(0), upperLimit = new Decimal(1)) {
-    const wordedNumbers = [];
-    while (true) {
-        const nextWord = getWordedNumberUnder(upperLimit);
-        if (!nextWord) break;
-        wordedNumbers.unshift(nextWord);
-        upperLimit = nextWord[1].minus(minCoordHeight);
-        if (nextWord[1].lt(lowerLimit)) break;
-    }
-    return wordedNumbers;
-}
 
 const title = "Integers:"
 const drawBottom = new Decimal(1);
 let words = [];
 function calcWords() {
-    words = getAllWordedNumbers(trueTop, trueBottom);
+    words = [];
+    let lowerLimit = trueTop;
+    let upperLimit = trueBottom;
+    while (true) {
+        const nextWord = getWordedNumberUnder(upperLimit);
+        if (!nextWord) break;
+        words.unshift(nextWord);
+        upperLimit = nextWord[1].minus(minCoordHeight);
+        if (nextWord[1].lt(lowerLimit)) break;
+    }
     words.unshift([title, new Decimal(0), false]);
     lastWord = getWordedNumberAbove(trueBottom);
     if (lastWord) words.push(lastWord);
@@ -299,7 +322,10 @@ canvas.addEventListener('mousedown', (e) => {
 });
 canvas.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
-    // Visual feedback here (draw selection rectangle)
+    draw();
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, Math.min(dragStartY, e.offsetY), (Math.abs(e.offsetY - dragStartY)*canvas.width/canvas.height), Math.abs(e.offsetY - dragStartY));
 });
 canvas.addEventListener('mouseup', (e) => {
     if (!isDragging) return;
