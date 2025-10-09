@@ -61,7 +61,7 @@ let trueTop = new Decimal(0);
 let trueBottom = new Decimal(1);
 const minPixelHeight = 1.0;
 let minCoordHeight = new Decimal(0);
-const strictness = 0.5; //0.5 seems to be good
+let strictness = 0.05; //0.5 seems to be good
 function calcViewDependentVars() {
     const denominator = trueBottom.minus(trueTop);
     minCoordHeight = denominator.times(minPixelHeight).div(canvas.height);
@@ -214,13 +214,31 @@ function getWordedNumberAbove(lowerLimit = new Decimal(0)) {
     }
 }
 
+function coordFormat(coord, compCoord = new Decimal(0)) {
+    let strCoord = coord.toString();
+    let strCompCoord = compCoord.toString();
+    strCoord = strCoord.substring(0, 30);
+    strCompCoord = strCompCoord.substring(0, 30);
+    let i = 0;
+    for (; i < Math.min(strCoord.length, strCompCoord.length); i++) {
+        if (strCoord[i] !== strCompCoord[i]) {
+            break;
+        }
+    }
+    if (i < strCoord.length) {
+        strCoord = strCoord.substring(0, i) + "[" + strCoord.substring(i) + "]";
+    }
+    return strCoord;
+}
+
 function getWordedNumberUnder(upperLimit = new Decimal(1)) {
+    console.log("getWordedNumberUnder: Searching under", upperLimit.toString());
     const words = [new WordedNumber()];
     words[0].coord = new Decimal(0);
     while (true) {
         let word = null;
         for (let i = 0; i < words.length; i++) {
-            if (!words[i].isTerminated) {
+            if (words[i] !== null && !words[i].isTerminated) {
                 word = words.splice(i, 1)[0];
                 break;
             }
@@ -228,6 +246,8 @@ function getWordedNumberUnder(upperLimit = new Decimal(1)) {
         if (!word) {
             return null; 
         }
+        console.log("Expanding word: " + word.numberText.substring(0, 30) + " @ " + coordFormat(word.coord, upperLimit)
+            + (words.length > 0 ? "\nRemaining words: " + words.map(w => w.numberText.substring(0, 30) + " @ " + coordFormat(w.coord, upperLimit)).join(", ") : ""));
         const extensions = getAllExtensions(word);
         for (let i = 0; i < extensions.length; i++) {
             if (extensions[i].coord.lte(upperLimit)) {
@@ -255,10 +275,12 @@ function getWordedNumberUnder(upperLimit = new Decimal(1)) {
             return [words[0].numberText, words[0].coord, false];
         }
         //We are assuming that the upperLimit is the bottom of the word
-        const lettersHeldOnScreen = Math.ceil(
-            ((trueBottom.minus(trueTop).times(canvas.width).times(4)).
-            div((upperLimit.plus(minCoordHeight)).minus(words[0].coord).times(canvas.height)))
-            .toNumber());
+        const screenHeightCoords = trueBottom.minus(trueTop);
+        const wordHeightCoords = upperLimit.minus(words[0].coord);
+        const wordsProportionOfScreen = screenHeightCoords.div(wordHeightCoords);
+        const widthToHeightRatio = canvas.width / canvas.height;
+        const letterSizeScale = 4;
+        const lettersHeldOnScreen = Math.ceil((wordsProportionOfScreen.times(widthToHeightRatio).times(letterSizeScale)).toNumber());
         const maxLetterShift = getBasePower(words[0].numberText.length);
         if (lettersHeldOnScreen < words[0].numberText.length && maxLetterShift.lessThan(minCoordHeight)) {
             // console.log("Too big:", words[0].numberText, words[0].coord.toString(), upperLimit.toString());
@@ -270,46 +292,40 @@ function getWordedNumberUnder(upperLimit = new Decimal(1)) {
 
 const title = "Integers:"
 const drawBottom = new Decimal(1);
-let words = [];
+let trueWords = [];
 function calcWords() {
-    words = [];
+    trueWords = [];
     let lowerLimit = trueTop;
     let upperLimit = trueBottom;
     while (true) {
         const nextWord = getWordedNumberUnder(upperLimit);
         if (!nextWord) break;
-        words.unshift(nextWord);
+        trueWords.unshift(nextWord);
         upperLimit = nextWord[1].minus(minCoordHeight);
         if (nextWord[1].lt(lowerLimit)) break;
     }
-    words.unshift([title, new Decimal(0), false]);
+    trueWords.unshift([title, new Decimal(0), false]);
     lastWord = getWordedNumberAbove(trueBottom);
-    if (lastWord) words.push(lastWord);
-    // //Logging
-    // let l = "###\n\n"
-    // for (let i = 0; i < words.length; i++) {
-    //     l += words[i][0].substring(0, 50) + " " + words[i][2] + "\n";
-    // }
-    // l += "\n\n###";
-    // console.log(l);
+    if (lastWord) trueWords.push(lastWord);
+    //Logging
+    console.log("words: ", trueWords.map(w => w[0].substring(0, 30) + " @ " + w[1].toString()).join(",\n"));
+
 }
 
 function draw() {
     fillBackground();
 
-    for (let i = 0; i < words.length - 1; i++) {
+    for (let i = 0; i < trueWords.length - 1; i++) {
         // Draw line only if fractal details are being skipped
-        const shouldDrawLine = words[i].length > 2 && words[i][2] === true;
-        drawLeftAlignedText(words[i][0], words[i][1], words[i+1][1], 0, "monospace", txtColor, shouldDrawLine);
+        const shouldDrawLine = trueWords[i].length > 2 && trueWords[i][2] === true;
+        drawLeftAlignedText(trueWords[i][0], trueWords[i][1], trueWords[i+1][1], 0, "monospace", txtColor, shouldDrawLine);
     }
-    if (words[words.length - 1][0] == "zero") {
-        const shouldDrawLine = words[words.length - 1].length > 2 && words[words.length - 1][2] === true;
-        drawLeftAlignedText(words[words.length - 1][0], words[words.length - 1][1], drawBottom, 0, "monospace", txtColor, shouldDrawLine);
+    if (trueWords[trueWords.length - 1][0] == "zero") {
+        const shouldDrawLine = trueWords[trueWords.length - 1].length > 2 && trueWords[trueWords.length - 1][2] === true;
+        drawLeftAlignedText(trueWords[trueWords.length - 1][0], trueWords[trueWords.length - 1][1], drawBottom, 0, "monospace", txtColor, shouldDrawLine);
     }
     requestAnimationFrame(() => {});
 }
-calcWords();
-draw();
 
 function normalizeBounds() {
     if (trueTop.lt(0)) {
@@ -322,8 +338,6 @@ function normalizeBounds() {
         if (trueTop.lt(0)) trueTop = new Decimal(0);
     }
 }
-const histZoomTop = [new Decimal(0)];
-const histZoomBottom = [new Decimal(1)];
 function zoom(lowerLimit, upperLimit, log = true) {
     trueTop = lowerLimit;
     trueBottom = upperLimit;
@@ -404,3 +418,8 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+const startTop = new Decimal("0.214870306464543705378769405057376492110656108894182852933283");
+const startBottom = new Decimal("0.214870355849902810979852450337706773276649469290898703095511");
+const histZoomTop = [startTop];
+const histZoomBottom = [startBottom];
+zoom(startTop, startBottom);
