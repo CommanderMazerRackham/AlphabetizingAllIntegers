@@ -67,7 +67,6 @@ function calcViewDependentVars() {
     minCoordHeight = denominator.times(minPixelHeight).div(canvas.height);
     Decimal.set({ precision: Math.ceil(strictness * canvas.width / minPixelHeight) });
 }
-calcViewDependentVars();
 
 const fontScale = 1.15;
 function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor, drawLine = false) {
@@ -145,150 +144,169 @@ function extendWord(wordNumber, segment) {
     extendedWord.coord = newCoord;
     return extendedWord;
 }
-function getAllExtensions(wordNumber) {
+
+function upperCoord(word) {
+    return word.coord.plus(getBasePower(word.numberText.length));
+}
+
+function isInRange(word, targetCoord) {
+    const lowerLimit = word.coord;
+    const upperLimit = upperCoord(word);
+    return targetCoord.gte(lowerLimit) && targetCoord.lte(upperLimit);
+}
+
+function getAllExtensions(wordNumber, limit, goingDown, closestWord = null) {
+    if (wordNumber.isTerminated) return [wordNumber];
     const extensions = [];
     for (const segment of wordNumber.getValidNexts()) {
         if (segment.text === "") {
-            const blankExtension = getAllExtensions(extendWord(wordNumber, segment));
+            const blankExtension = getAllExtensions(extendWord(wordNumber, segment), limit, goingDown, closestWord);
             for (let i = 0; i < blankExtension.length; i++) {
                 extensions.push(blankExtension[i]);
             }
         } else {
-            extensions.push(extendWord(wordNumber, segment));
+            const word = extendWord(wordNumber, segment);
+            if (goingDown && (word.coord.gt(limit) || upperCoord(word).lt(closestWord.coord))) continue;
+            if (!goingDown && (word.coord.lt(limit) || word.coord.gt(upperCoord(closestWord)))) continue;
+            if (isInRange(word, limit)) continue;
+            extensions.push(word);
         }
     }
     return extensions;
 }
-function appearsIn(wordLong, wordShort) { return wordLong.numberText.indexOf(wordShort.numberText) !== -1;}
 
-function getWordedNumberAbove(lowerLimit = new Decimal(0)) {
-    const words = [new WordedNumber()];
-    words[0].coord = new Decimal(0);
-    while (true) {
-        let word = null;
-        for (let i = 0; i < words.length; i++) {
-            if (!words[i].isTerminated) {
-                word = words.splice(i, 1)[0];
+function isTooLong(word, limit) {
+    // if (!word.numberText) return false;
+    const screenHeightCoords = trueBottom.minus(trueTop);
+    const wordHeightCoords = (limit.minus(word.coord)).abs();
+    const wordsProportionOfScreen = screenHeightCoords.div(wordHeightCoords);
+    const widthToHeightRatio = canvas.width / canvas.height;
+    const letterSizeScale = 4;
+    const lettersHeldOnScreen = Math.ceil((wordsProportionOfScreen.times(widthToHeightRatio).times(letterSizeScale)).toNumber());
+    const maxLetterShift = getBasePower(word.numberText.length);
+    return (lettersHeldOnScreen < word.numberText.length && maxLetterShift.lessThan(minCoordHeight));
+}
+
+// function coordFormat(coord, compCoord = new Decimal(0)) {
+//     let strCoord = coord.toString();
+//     let strCompCoord = compCoord.toString();
+//     strCoord = strCoord.substring(0, 30);
+//     strCompCoord = strCompCoord.substring(0, 30);
+//     let i = 0;
+//     for (; i < Math.min(strCoord.length, strCompCoord.length); i++) {
+//         if (strCoord[i] !== strCompCoord[i]) {
+//             break;
+//         }
+//     }
+//     if (i < strCoord.length) {
+//         strCoord = strCoord.substring(0, i) + "[" + strCoord.substring(i) + "]";
+//     }
+//     return strCoord;
+// }
+
+function getWordedNumber(limit, goingDown = true) {
+    let wordPool = [new WordedNumber()];
+    wordPool[0].coord = new Decimal(0);
+    let searching = true;
+    let searchCount = 0;
+    while (searching && searchCount < 10) {
+        searchCount++;
+        console.log(searchCount, " pool size: ", wordPool.length);
+        if (wordPool.length > 1000) {
+            for (let i = 0; i < wordPool.length; i++) {
+                console.log(" Pool ", i, ": ", wordPool[i].numberText, wordPool[i].coord.toString());
+            }
+        }
+        if (wordPool.length == 0) {return null;}
+        if (goingDown) {
+            wordPool.sort((a, b) => b.coord.comparedTo(a.coord));
+        } else {
+            wordPool.sort((a, b) => a.coord.comparedTo(b.coord));
+        }
+        let newWordPool = [];
+        let closestWord = wordPool[0];
+        let closestDistance = (closestWord.coord.minus(limit)).abs();
+        for (let i = 0; i < wordPool.length; i++) {
+            if ((wordPool[i].coord.minus(limit)).abs().
+            lt(closestDistance)) {
+                continue;
+            }
+            const extensions = getAllExtensions(wordPool[i], limit, goingDown, closestWord);
+            for (let j = 0; j < extensions.length; j++) {
+                const extDistance = extensions[j].coord.minus(limit).abs();
+                if (extDistance.lt(closestDistance)) {
+                    closestWord = extensions[j];
+                    closestDistance = extDistance;
+                    if (closestDistance.isZero()) {
+                        //Theoretically should never run
+                        return [closestWord.numberText, closestWord.coord, isTooLong(closestWord, limit)];
+                    }
+                }
+                newWordPool.push(extensions[j]);
+            }
+        }
+        
+        // Limit pool size to prevent explosion
+        const maxPoolSize = 100;
+        if (newWordPool.length > maxPoolSize) {
+            newWordPool.sort((a, b) => a.coord.minus(limit).abs().comparedTo(b.coord.minus(limit).abs()));
+            newWordPool = newWordPool.slice(0, maxPoolSize);
+        }
+        
+        wordPool = newWordPool;
+        if (wordPool.length == 0) {return null;}
+        if (goingDown) {
+            let maxWord = wordPool[0];
+            for (let i = 1; i < wordPool.length; i++) {
+                if (wordPool[i].coord.gt(maxWord.coord)) {
+                    maxWord = wordPool[i];
+                }
+            }
+            let newWordPool = [];
+            for (let i = 0; i < wordPool.length; i++) {
+                if (!upperCoord(wordPool[i]).lt(maxWord.coord)) {
+                    newWordPool.push(wordPool[i]);
+                }
+            }
+            wordPool = newWordPool;
+        } else {
+            let minWord = wordPool[0];
+            for (let i = 1; i < wordPool.length; i++) {
+                if (wordPool[i].coord.lt(minWord.coord)) {
+                    minWord = wordPool[i];
+                }
+            }
+            let newWordPool = [];
+            for (let i = 0; i < wordPool.length; i++) {
+                if (!wordPool[i].coord.gt(upperCoord(minWord))) {
+                    newWordPool.push(wordPool[i]);
+                }
+            }
+            wordPool = newWordPool;
+        }
+        searching = false;
+        for (let i = 0; i < wordPool.length; i++) {
+            if (!wordPool[i].isTerminated && !isTooLong(wordPool[i], limit)) {
+                searching = true;
                 break;
             }
         }
-        if (!word) {
-            return null; 
-        }
-        const extensions = getAllExtensions(word);
-        for (let i = 0; i < extensions.length; i++) {
-            if (extensions[i].coord.gte(lowerLimit)) {
-                words.push(extensions[i]);
+    }
+    if (wordPool.length === 0) {return null;}
+    let bestWord = wordPool[0]; // Start with first word instead of dummy object
+    for (let i = 1; i < wordPool.length; i++) {
+        if (goingDown) {
+            if (wordPool[i].coord.gt(bestWord.coord)) {
+                bestWord = wordPool[i];
             }
-        }
-        let minWord = {coord: new Decimal(1)};
-        for (let i = 0; i < words.length; i++) {
-            if (words[i].coord.lte(minWord.coord)) {
-                minWord = words[i];
+        } else {
+            if (wordPool[i].coord.lt(bestWord.coord)) {
+                bestWord = wordPool[i];
             }
-        }
-        for (let i = 0; i < words.length; i++) {
-            if (!appearsIn(minWord, words[i])) {
-                words.splice(i, 1);
-                i--;
-            }
-        }
-        words.sort((a, b) => a.coord.minus(b.coord).toNumber());
-        if (words.length !== 1) {
-            continue;
-        }
-        if (words[0].isTerminated) {
-            // console.log("Terminated:", words[0].numberText);
-            return [words[0].numberText, words[0].coord, false];
-        }
-        //We are assuming that the upperLimit is the bottom of the word
-        const lettersHeldOnScreen = Math.ceil(
-            ((trueBottom.minus(trueTop).times(canvas.width).times(4)).
-            div((words[0].coord).minus(lowerLimit.minus(minCoordHeight)).times(canvas.height)))
-            .toNumber());
-        const maxLetterShift = getBasePower(words[0].numberText.length);
-        if (lettersHeldOnScreen < words[0].numberText.length && maxLetterShift.lessThan(minCoordHeight)) {
-            // console.log("Too big:", words[0].numberText, words[0].coord.toString(), upperLimit.toString());
-            return [words[0].numberText, words[0].coord, true]; // true = fractal details skipped
         }
     }
+    return [bestWord.numberText, bestWord.coord, isTooLong(bestWord, limit)];
 }
-
-function coordFormat(coord, compCoord = new Decimal(0)) {
-    let strCoord = coord.toString();
-    let strCompCoord = compCoord.toString();
-    strCoord = strCoord.substring(0, 30);
-    strCompCoord = strCompCoord.substring(0, 30);
-    let i = 0;
-    for (; i < Math.min(strCoord.length, strCompCoord.length); i++) {
-        if (strCoord[i] !== strCompCoord[i]) {
-            break;
-        }
-    }
-    if (i < strCoord.length) {
-        strCoord = strCoord.substring(0, i) + "[" + strCoord.substring(i) + "]";
-    }
-    return strCoord;
-}
-
-function getWordedNumberUnder(upperLimit = new Decimal(1)) {
-    console.log("getWordedNumberUnder: Searching under", upperLimit.toString());
-    const words = [new WordedNumber()];
-    words[0].coord = new Decimal(0);
-    while (true) {
-        let word = null;
-        for (let i = 0; i < words.length; i++) {
-            if (words[i] !== null && !words[i].isTerminated) {
-                word = words.splice(i, 1)[0];
-                break;
-            }
-        }
-        if (!word) {
-            return null; 
-        }
-        console.log("Expanding word: " + word.numberText.substring(0, 30) + " @ " + coordFormat(word.coord, upperLimit)
-            + (words.length > 0 ? "\nRemaining words: " + words.map(w => w.numberText.substring(0, 30) + " @ " + coordFormat(w.coord, upperLimit)).join(", ") : ""));
-        const extensions = getAllExtensions(word);
-        for (let i = 0; i < extensions.length; i++) {
-            if (extensions[i].coord.lte(upperLimit)) {
-                words.push(extensions[i]);
-            }
-        }
-        let maxWord = {coord: new Decimal(0)};
-        for (let i = 0; i < words.length; i++) {
-            if (words[i].coord.gte(maxWord.coord)) {
-                maxWord = words[i];
-            }
-        }
-        for (let i = 0; i < words.length; i++) {
-            if (!appearsIn(maxWord, words[i])) {
-                words.splice(i, 1);
-                i--;
-            }
-        }
-        words.sort((a, b) => a.coord.minus(b.coord).toNumber());
-        if (words.length !== 1) {
-            continue;
-        }
-        if (words[0].isTerminated) {
-            // console.log("Terminated:", words[0].numberText);
-            return [words[0].numberText, words[0].coord, false];
-        }
-        //We are assuming that the upperLimit is the bottom of the word
-        const screenHeightCoords = trueBottom.minus(trueTop);
-        const wordHeightCoords = upperLimit.minus(words[0].coord);
-        const wordsProportionOfScreen = screenHeightCoords.div(wordHeightCoords);
-        const widthToHeightRatio = canvas.width / canvas.height;
-        const letterSizeScale = 4;
-        const lettersHeldOnScreen = Math.ceil((wordsProportionOfScreen.times(widthToHeightRatio).times(letterSizeScale)).toNumber());
-        const maxLetterShift = getBasePower(words[0].numberText.length);
-        if (lettersHeldOnScreen < words[0].numberText.length && maxLetterShift.lessThan(minCoordHeight)) {
-            // console.log("Too big:", words[0].numberText, words[0].coord.toString(), upperLimit.toString());
-            return [words[0].numberText, words[0].coord, true]; // true = fractal details skipped
-        }
-    }
-}
-
 
 const title = "Integers:"
 const drawBottom = new Decimal(1);
@@ -298,14 +316,14 @@ function calcWords() {
     let lowerLimit = trueTop;
     let upperLimit = trueBottom;
     while (true) {
-        const nextWord = getWordedNumberUnder(upperLimit);
+        const nextWord = getWordedNumber(upperLimit, true);
         if (!nextWord) break;
         trueWords.unshift(nextWord);
         upperLimit = nextWord[1].minus(minCoordHeight);
         if (nextWord[1].lt(lowerLimit)) break;
     }
     trueWords.unshift([title, new Decimal(0), false]);
-    lastWord = getWordedNumberAbove(trueBottom);
+    lastWord = getWordedNumber(trueBottom, false);
     if (lastWord) trueWords.push(lastWord);
     //Logging
     console.log("words: ", trueWords.map(w => w[0].substring(0, 30) + " @ " + w[1].toString()).join(",\n"));
@@ -314,13 +332,12 @@ function calcWords() {
 
 function draw() {
     fillBackground();
-
     for (let i = 0; i < trueWords.length - 1; i++) {
         // Draw line only if fractal details are being skipped
         const shouldDrawLine = trueWords[i].length > 2 && trueWords[i][2] === true;
         drawLeftAlignedText(trueWords[i][0], trueWords[i][1], trueWords[i+1][1], 0, "monospace", txtColor, shouldDrawLine);
     }
-    if (trueWords[trueWords.length - 1][0] == "zero") {
+    if (trueWords.length > 1 && trueWords[trueWords.length - 1][0] == "zero") {
         const shouldDrawLine = trueWords[trueWords.length - 1].length > 2 && trueWords[trueWords.length - 1][2] === true;
         drawLeftAlignedText(trueWords[trueWords.length - 1][0], trueWords[trueWords.length - 1][1], drawBottom, 0, "monospace", txtColor, shouldDrawLine);
     }
@@ -418,8 +435,12 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-const startTop = new Decimal("0.214870306464543705378769405057376492110656108894182852933283");
-const startBottom = new Decimal("0.214870355849902810979852450337706773276649469290898703095511");
+const startTop = new Decimal(0) //new Decimal("0.214870306464543705378769405057376492110656108894182852933283");
+const startBottom = new Decimal(1) // new Decimal("0.214870355849902810979852450337706773276649469290898703095511");
 const histZoomTop = [startTop];
 const histZoomBottom = [startBottom];
+
+
+calcViewDependentVars();
+draw();
 zoom(startTop, startBottom);
