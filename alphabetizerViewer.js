@@ -1,26 +1,16 @@
 const canvas = document.getElementById('alphabetizerCanvas');
-
 const txtColor = "#FF8C28";
 const bkgColor = "#0C0C0C";
 const grdColor = "#AAAAAA";
-
-// Remove default page margins/padding and prevent scrollbars
 document.body.style.margin = '0';
 document.body.style.padding = '0';
 document.body.style.overflow = 'hidden';
 canvas.style.display = 'block';
 canvas.style.margin = '0';
 canvas.style.padding = '0';
-
-// Get the 2D context for drawing
 const ctx = canvas.getContext('2d');
-// Set canvas dimensions to window size
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
-
-
-
-
 function fillBackground() {
     ctx.fillStyle = bkgColor;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -49,18 +39,16 @@ function fillBackground() {
         lineCol += lineInc;
     }
 }
-
 let trueTop = new Decimal(0);
 let trueBottom = new Decimal(1);
 const minPixelHeight = 2.0;
 let minCoordHeight = new Decimal(0);
-let strictness = 0.05; //0.5 seems to be good
+let strictness = 0.25; //0.5 seems to be good
 function calcViewDependentVars() {
     const denominator = trueBottom.minus(trueTop);
     minCoordHeight = denominator.times(minPixelHeight).div(canvas.height);
     Decimal.set({ precision: Math.ceil(strictness * canvas.width / minPixelHeight) });
 }
-
 const fontScale = 1.15;
 function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, fontFamily = "monospace", color = txtColor, drawLine = false) {
     if (bottomHeight.minus(topHeight).lessThan(minCoordHeight)) return; 
@@ -99,7 +87,6 @@ const letterRank = {
 const basePow = [new Decimal(1)]; 
 const tenPow = [new Decimal(1)];
 const digitDict = [[]];
-//NOTE: Indexing is a bit weird here, because we want 1/base to be at position 1, not position 0
 function getBasePower(position) {
     while (basePow.length <= position) {
         basePow.push(basePow[basePow.length - 1].div(base));
@@ -138,209 +125,107 @@ function extendWord(wordNumber, segment) {
     return extendedWord;
 }
 
-function upperCoord(word) {
-    return word.coord.plus(getBasePower(word.numberText.length));
+function isTooLong(word) {
+    return word.numberText.length > 300;
 }
 
-function isInRange(word, targetCoord) {
-    const lowerLimit = word.coord;
-    const upperLimit = upperCoord(word);
-    return targetCoord.gte(lowerLimit) && targetCoord.lte(upperLimit);
+function getShortestUnfinishedWordIndex(wordPool, goingDown) {
+    let shortestWordIndex = -1;
+    let shortestWord = null;
+    
+    for (let i = 0; i < wordPool.length; i++) {
+        if (wordPool[i].isTerminated) continue;
+        
+        if (!shortestWord || 
+            wordPool[i].numberText.length < shortestWord.numberText.length ||
+            (wordPool[i].numberText.length === shortestWord.numberText.length &&
+             ((wordPool[i].coord.gt(shortestWord.coord) && goingDown) ||
+              (wordPool[i].coord.lt(shortestWord.coord) && !goingDown)))) {
+            shortestWord = wordPool[i];
+            shortestWordIndex = i;
+        }
+    }
+    
+    return shortestWordIndex;
+}
+function getClosestWord(wordPool, limit) {
+    if (wordPool.length === 0) { return null; }
+    let closestWord = wordPool[0];
+    for (let i = 1; i < wordPool.length; i++) {
+        if (wordPool[i].coord.minus(limit).abs().lt(
+        closestWord.coord.minus(limit).abs())) {
+            closestWord = wordPool[i];
+        }
+    }
+    return closestWord;
 }
 
-function getAllExtensions(wordNumber, limit, goingDown, closestWord = null) {
-    if (wordNumber.isTerminated) { return [wordNumber]; }
+function isValidTextExtension(wordStr, checkStr, goingDown) {
+    for (let i = 0; i < Math.min(wordStr.length, checkStr.length); i++) {
+        if (wordStr[i] === checkStr[i]) { continue; }
+        return (letterRank[wordStr[i]] > letterRank[checkStr[i]]) == goingDown;
+    }
+    return true;
+}
+
+function getExtensions(word, closestWord, limit, goingDown) {
     const extensions = [];
-    for (const segment of wordNumber.getValidNexts()) {
-        if (segment.text === "") {
-            const blankExtension = getAllExtensions(extendWord(wordNumber, segment), limit, goingDown, closestWord);
-            for (let i = 0; i < blankExtension.length; i++) {
-                extensions.push(blankExtension[i]);
+    const agreementText = closestWord.numberText.substring(word.numberText.length);
+    const validNexts = word.getValidNexts();
+    for (let i = 0; i < validNexts.length; i++) {
+        if (isValidTextExtension(validNexts[i].text, agreementText, goingDown)) {
+            const newWord = extendWord(word, validNexts[i]);
+            if ((newWord.coord.gt(limit) && goingDown) ||
+                (newWord.coord.lt(limit) && !goingDown)) {
+                continue;
             }
-        } else {
-            const word = extendWord(wordNumber, segment);
-            if (goingDown && (word.coord.gt(limit) || upperCoord(word).lt(closestWord.coord))) { continue; }
-            if (!goingDown && (word.coord.lt(limit) || word.coord.gt(upperCoord(closestWord)))) { continue; }
-            if (isInRange(word, limit)) { continue; }
-            extensions.push(word);
+            extensions.push(newWord);
         }
     }
     return extensions;
 }
 
-function isTooLong(word, limit) {
-    // if (!word.numberText) return false;
-    const screenHeightCoords = trueBottom.minus(trueTop);
-    const wordHeightCoords = (limit.minus(word.coord)).abs();
-    const wordsProportionOfScreen = screenHeightCoords.div(wordHeightCoords);
-    const widthToHeightRatio = canvas.width / canvas.height;
-    const letterSizeScale = 4;
-    const lettersHeldOnScreen = Math.ceil((wordsProportionOfScreen.times(widthToHeightRatio).times(letterSizeScale)).toNumber());
-    const maxLetterShift = getBasePower(word.numberText.length);
-    return (lettersHeldOnScreen < word.numberText.length && maxLetterShift.lessThan(minCoordHeight));
-}
-
-// function coordFormat(coord, compCoord = new Decimal(0)) {
-//     let strCoord = coord.toString();
-//     let strCompCoord = compCoord.toString();
-//     strCoord = strCoord.substring(0, 30);
-//     strCompCoord = strCompCoord.substring(0, 30);
-//     let i = 0;
-//     for (; i < Math.min(strCoord.length, strCompCoord.length); i++) {
-//         if (strCoord[i] !== strCompCoord[i]) {
-//             break;
-//         }
-//     }
-//     if (i < strCoord.length) {
-//         strCoord = strCoord.substring(0, i) + "[" + strCoord.substring(i) + "]";
-//     }
-//     return strCoord;
-// }
-
-function getShortestWordIndex(wordPool, goingDown) {
-    if (wordPool.length === 0) { return -1; }
-    let shortestWordIndex = 0;
-    while (wordPool[shortestWordIndex].isTerminated) {
-        shortestWordIndex++;
-        if (shortestWordIndex >= wordPool.length) {
-            return -1;
-        }
-    }
-    let shortestWord = wordPool[shortestWordIndex];
-    for (let i = shortestWordIndex + 1; i < wordPool.length; i++) {
-        if (wordPool[i].isTerminated) { continue; }
-        if (wordPool[i].numberText.length < shortestWord.numberText.length) {
-            shortestWord = wordPool[i];
-            shortestWordIndex = i;
-        } else if (wordPool[i].numberText.length === shortestWord.numberText.length) {
-            if (goingDown) {
-                if (wordPool[i].coord.gt(shortestWord.coord)) {
-                    shortestWord = wordPool[i];
-                    shortestWordIndex = i;
-                }
-            } else {
-                if (wordPool[i].coord.lt(shortestWord.coord)) {
-                    shortestWord = wordPool[i];
-                    shortestWordIndex = i;
-                }
-            }
-        }
-    }
-    return shortestWordIndex;
-}
-
 function getWordedNumber(limit, goingDown = true) {
-
-    let limitNum = limit.toNumber();
-    let logging = (0.216 > limit) && (limit > 0.214);
     let wordPool = [new WordedNumber()];
     wordPool[0].coord = new Decimal(0);
     let searching = true;
     let searchCount = 0;
     while (searching && searchCount < 100) {
         searchCount++;
-
-        if (logging) console.log("Search ", searchCount, " Pool size: ", wordPool.length, goingDown ? "" : " ^");
         if (wordPool.length === 0) { return null; }
-        let closestWord = wordPool[0];
-        let closestDist = (closestWord.coord.minus(limit)).abs();
-        for (let i = 1; i < wordPool.length; i++) {
-            const dist = (wordPool[i].coord.minus(limit)).abs();
-            if (dist.lt(closestDist)) {
-                closestDist = dist;
-                closestWord = wordPool[i];
+        const closestWord = getClosestWord(wordPool, limit);
+        const newWordPool = [];
+        for (let i = 0; i < wordPool.length; i++) {
+            const textIndex = Math.min(closestWord.numberText.length, wordPool[i].numberText.length);
+            if (closestWord.numberText.substring(0, textIndex) === wordPool[i].numberText.substring(0, textIndex)) {
+                newWordPool.push(wordPool[i]);
             }
         }
-        if (logging) console.log("closest word", closestWord);
-        if (goingDown) {
-
-
-
-            let nextWordPool = [];
-            for (let i = 0; i < wordPool.length; i++) {
-                if (wordPool[i].isTerminated) {
-                    if (!wordPool[i].coord.lt(closestWord.coord)) {
-                        nextWordPool.push(wordPool[i]);
-                    }
-                } else {
-                    if (!upperCoord(wordPool[i]).lt(closestWord.coord)) {
-                        nextWordPool.push(wordPool[i]);
-                    }
-                }
-            }
-            wordPool = nextWordPool;
-            const shortestWordIndex = getShortestWordIndex(wordPool, goingDown);
-            if (shortestWordIndex === -1) { break; }
-            const shortestWord = wordPool.splice(shortestWordIndex, 1)[0];
-            if (logging) console.log("word pool", wordPool.length, wordPool);
-            if (logging) console.log("shortest word", shortestWord);
-
-            const extensions = getAllExtensions(shortestWord, limit, goingDown, closestWord);
-            for (let i = 0; i < extensions.length; i++) {
-                // Apply the same filtering logic to extensions
-                if (!upperCoord(extensions[i]).lt(closestWord.coord)) {
-                    wordPool.push(extensions[i]);
-                }
-            }
-
-
-
-        } else {
-
-
-
-            let nextWordPool = [];
-            const upperCutoff = upperCoord(closestWord);
-            for (let i = 0; i < wordPool.length; i++) {
-                if (wordPool[i].isTerminated) {
-                    if (!wordPool[i].coord.gt(closestWord.coord)) {
-                        nextWordPool.push(wordPool[i]);
-                    }
-                } else {
-                    if (!wordPool[i].coord.gt(upperCutoff)) {
-                        nextWordPool.push(wordPool[i]);
-                    }
-                }
-            }
-            wordPool = nextWordPool;
-            const shortestWordIndex = getShortestWordIndex(wordPool, goingDown);
-            if (shortestWordIndex === -1) { break; }
-            const shortestWord = wordPool.splice(shortestWordIndex, 1)[0];
-            const extensions = getAllExtensions(shortestWord, limit, goingDown, closestWord);
-            for (let i = 0; i < extensions.length; i++) {
-                // Apply the same filtering logic to extensions
-                if (!extensions[i].coord.gt(upperCutoff)) {
-                    wordPool.push(extensions[i]);
-                }
-            }
-
-
-
+        wordPool = newWordPool;
+        const shortestWordIndex = getShortestUnfinishedWordIndex(wordPool, goingDown);
+        console.log("closestWord", closestWord)
+        console.log("wordPool", wordPool)
+        console.log("shortestWordIndex", shortestWordIndex)
+        if (shortestWordIndex === -1) { break; }
+        const shortestWord = wordPool.splice(shortestWordIndex, 1)[0];
+        console.log("shortestWord", shortestWord)
+        const extensions = getExtensions(shortestWord, closestWord, limit, goingDown);
+        console.log("extensions", extensions)
+        for (let i = 0; i < extensions.length; i++) {
+            wordPool.push(extensions[i]);
         }
-
-        if (wordPool.length === 0) {return null;}
+        console.log("new wordPool", wordPool)
         searching = false;
         for (let i = 0; i < wordPool.length; i++) {
-            if (!wordPool[i].isTerminated && !isTooLong(wordPool[i], limit)) {
-                if (logging) console.log("  Continuing search with word: ", wordPool[i]);
+            if (!wordPool[i].isTerminated && !isTooLong(wordPool[i])) {
                 searching = true;
                 break;
             }
         }
     }
-    if (wordPool.length === 0) {return null;}
-    let bestWord = wordPool[0]; // Start with first word instead of dummy object
-    for (let i = 1; i < wordPool.length; i++) {
-        if (goingDown) {
-            if (wordPool[i].coord.gt(bestWord.coord)) {
-                bestWord = wordPool[i];
-            }
-        } else {
-            if (wordPool[i].coord.lt(bestWord.coord)) {
-                bestWord = wordPool[i];
-            }
-        }
-    }
+    console.log("return")
+    if (wordPool.length === 0) { return null; }
+    let bestWord = wordPool[wordPool.length - 1];
     return [bestWord.numberText, bestWord.coord, !bestWord.isTerminated];
 }
 
@@ -477,8 +362,8 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-const startTop = new Decimal(0) //new Decimal("0.214870306464543705378769405057376492110656108894182852933283");
-const startBottom = new Decimal(1) // new Decimal("0.214870355849902810979852450337706773276649469290898703095511");
+const startTop = new Decimal(0) // new Decimal("0.3117108853300605457130859349360471833532425609697088177919451673740825169883367752926928174086872039538151736902273444055539819878298438045862730336928253350940773142579067810020102958598201296721363796327365095739181827229684490643159821376432614865299394455875267398961597167303839272547210464128115223588823199334886961002700752491556175574137936373568602218596031187536756682522624");
+const startBottom = new Decimal(1) //new Decimal("0.4401752804118130780191373194736594203767532508900088085674557666154373513966332469213585452870185375013207361087058030195134552354774061899105675583872023228491713625328206746836800572559272373645541769851335943756427903351118539967781431415272374938035758153218242739876825519147264612774272672134132053022753028057133273081009649908640263883529244552745507588660943571536756682522624");
 const histZoomTop = [startTop];
 const histZoomBottom = [startBottom];
 
