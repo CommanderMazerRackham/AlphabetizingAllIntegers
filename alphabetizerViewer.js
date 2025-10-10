@@ -18,13 +18,6 @@ const ctx = canvas.getContext('2d');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Update canvas size when window is resized
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    calcViewDependentVars();
-    draw();
-});
 
 
 
@@ -59,7 +52,7 @@ function fillBackground() {
 
 let trueTop = new Decimal(0);
 let trueBottom = new Decimal(1);
-const minPixelHeight = 1.0;
+const minPixelHeight = 2.0;
 let minCoordHeight = new Decimal(0);
 let strictness = 0.05; //0.5 seems to be good
 function calcViewDependentVars() {
@@ -156,7 +149,7 @@ function isInRange(word, targetCoord) {
 }
 
 function getAllExtensions(wordNumber, limit, goingDown, closestWord = null) {
-    if (wordNumber.isTerminated) return [wordNumber];
+    if (wordNumber.isTerminated) { return [wordNumber]; }
     const extensions = [];
     for (const segment of wordNumber.getValidNexts()) {
         if (segment.text === "") {
@@ -166,9 +159,9 @@ function getAllExtensions(wordNumber, limit, goingDown, closestWord = null) {
             }
         } else {
             const word = extendWord(wordNumber, segment);
-            if (goingDown && (word.coord.gt(limit) || upperCoord(word).lt(closestWord.coord))) continue;
-            if (!goingDown && (word.coord.lt(limit) || word.coord.gt(upperCoord(closestWord)))) continue;
-            if (isInRange(word, limit)) continue;
+            if (goingDown && (word.coord.gt(limit) || upperCoord(word).lt(closestWord.coord))) { continue; }
+            if (!goingDown && (word.coord.lt(limit) || word.coord.gt(upperCoord(closestWord)))) { continue; }
+            if (isInRange(word, limit)) { continue; }
             extensions.push(word);
         }
     }
@@ -204,89 +197,132 @@ function isTooLong(word, limit) {
 //     return strCoord;
 // }
 
+function getShortestWordIndex(wordPool, goingDown) {
+    if (wordPool.length === 0) { return -1; }
+    let shortestWordIndex = 0;
+    while (wordPool[shortestWordIndex].isTerminated) {
+        shortestWordIndex++;
+        if (shortestWordIndex >= wordPool.length) {
+            return -1;
+        }
+    }
+    let shortestWord = wordPool[shortestWordIndex];
+    for (let i = shortestWordIndex + 1; i < wordPool.length; i++) {
+        if (wordPool[i].isTerminated) { continue; }
+        if (wordPool[i].numberText.length < shortestWord.numberText.length) {
+            shortestWord = wordPool[i];
+            shortestWordIndex = i;
+        } else if (wordPool[i].numberText.length === shortestWord.numberText.length) {
+            if (goingDown) {
+                if (wordPool[i].coord.gt(shortestWord.coord)) {
+                    shortestWord = wordPool[i];
+                    shortestWordIndex = i;
+                }
+            } else {
+                if (wordPool[i].coord.lt(shortestWord.coord)) {
+                    shortestWord = wordPool[i];
+                    shortestWordIndex = i;
+                }
+            }
+        }
+    }
+    return shortestWordIndex;
+}
+
 function getWordedNumber(limit, goingDown = true) {
+
+    let limitNum = limit.toNumber();
+    let logging = (0.216 > limit) && (limit > 0.214);
     let wordPool = [new WordedNumber()];
     wordPool[0].coord = new Decimal(0);
     let searching = true;
     let searchCount = 0;
-    while (searching && searchCount < 10) {
+    while (searching && searchCount < 100) {
         searchCount++;
-        console.log(searchCount, " pool size: ", wordPool.length);
-        if (wordPool.length > 1000) {
-            for (let i = 0; i < wordPool.length; i++) {
-                console.log(" Pool ", i, ": ", wordPool[i].numberText, wordPool[i].coord.toString());
-            }
-        }
-        if (wordPool.length == 0) {return null;}
-        if (goingDown) {
-            wordPool.sort((a, b) => b.coord.comparedTo(a.coord));
-        } else {
-            wordPool.sort((a, b) => a.coord.comparedTo(b.coord));
-        }
-        let newWordPool = [];
+
+        if (logging) console.log("Search ", searchCount, " Pool size: ", wordPool.length, goingDown ? "" : " ^");
+        if (wordPool.length === 0) { return null; }
         let closestWord = wordPool[0];
-        let closestDistance = (closestWord.coord.minus(limit)).abs();
-        for (let i = 0; i < wordPool.length; i++) {
-            if ((wordPool[i].coord.minus(limit)).abs().
-            lt(closestDistance)) {
-                continue;
+        let closestDist = (closestWord.coord.minus(limit)).abs();
+        for (let i = 1; i < wordPool.length; i++) {
+            const dist = (wordPool[i].coord.minus(limit)).abs();
+            if (dist.lt(closestDist)) {
+                closestDist = dist;
+                closestWord = wordPool[i];
             }
-            const extensions = getAllExtensions(wordPool[i], limit, goingDown, closestWord);
-            for (let j = 0; j < extensions.length; j++) {
-                const extDistance = extensions[j].coord.minus(limit).abs();
-                if (extDistance.lt(closestDistance)) {
-                    closestWord = extensions[j];
-                    closestDistance = extDistance;
-                    if (closestDistance.isZero()) {
-                        //Theoretically should never run
-                        return [closestWord.numberText, closestWord.coord, isTooLong(closestWord, limit)];
+        }
+        if (logging) console.log("closest word", closestWord);
+        if (goingDown) {
+
+
+
+            let nextWordPool = [];
+            for (let i = 0; i < wordPool.length; i++) {
+                if (wordPool[i].isTerminated) {
+                    if (!wordPool[i].coord.lt(closestWord.coord)) {
+                        nextWordPool.push(wordPool[i]);
+                    }
+                } else {
+                    if (!upperCoord(wordPool[i]).lt(closestWord.coord)) {
+                        nextWordPool.push(wordPool[i]);
                     }
                 }
-                newWordPool.push(extensions[j]);
             }
-        }
-        
-        // Limit pool size to prevent explosion
-        const maxPoolSize = 100;
-        if (newWordPool.length > maxPoolSize) {
-            newWordPool.sort((a, b) => a.coord.minus(limit).abs().comparedTo(b.coord.minus(limit).abs()));
-            newWordPool = newWordPool.slice(0, maxPoolSize);
-        }
-        
-        wordPool = newWordPool;
-        if (wordPool.length == 0) {return null;}
-        if (goingDown) {
-            let maxWord = wordPool[0];
-            for (let i = 1; i < wordPool.length; i++) {
-                if (wordPool[i].coord.gt(maxWord.coord)) {
-                    maxWord = wordPool[i];
+            wordPool = nextWordPool;
+            const shortestWordIndex = getShortestWordIndex(wordPool, goingDown);
+            if (shortestWordIndex === -1) { break; }
+            const shortestWord = wordPool.splice(shortestWordIndex, 1)[0];
+            if (logging) console.log("word pool", wordPool.length, wordPool);
+            if (logging) console.log("shortest word", shortestWord);
+
+            const extensions = getAllExtensions(shortestWord, limit, goingDown, closestWord);
+            for (let i = 0; i < extensions.length; i++) {
+                // Apply the same filtering logic to extensions
+                if (!upperCoord(extensions[i]).lt(closestWord.coord)) {
+                    wordPool.push(extensions[i]);
                 }
             }
-            let newWordPool = [];
-            for (let i = 0; i < wordPool.length; i++) {
-                if (!upperCoord(wordPool[i]).lt(maxWord.coord)) {
-                    newWordPool.push(wordPool[i]);
-                }
-            }
-            wordPool = newWordPool;
+
+
+
         } else {
-            let minWord = wordPool[0];
-            for (let i = 1; i < wordPool.length; i++) {
-                if (wordPool[i].coord.lt(minWord.coord)) {
-                    minWord = wordPool[i];
-                }
-            }
-            let newWordPool = [];
+
+
+
+            let nextWordPool = [];
+            const upperCutoff = upperCoord(closestWord);
             for (let i = 0; i < wordPool.length; i++) {
-                if (!wordPool[i].coord.gt(upperCoord(minWord))) {
-                    newWordPool.push(wordPool[i]);
+                if (wordPool[i].isTerminated) {
+                    if (!wordPool[i].coord.gt(closestWord.coord)) {
+                        nextWordPool.push(wordPool[i]);
+                    }
+                } else {
+                    if (!wordPool[i].coord.gt(upperCutoff)) {
+                        nextWordPool.push(wordPool[i]);
+                    }
                 }
             }
-            wordPool = newWordPool;
+            wordPool = nextWordPool;
+            const shortestWordIndex = getShortestWordIndex(wordPool, goingDown);
+            if (shortestWordIndex === -1) { break; }
+            const shortestWord = wordPool.splice(shortestWordIndex, 1)[0];
+            const extensions = getAllExtensions(shortestWord, limit, goingDown, closestWord);
+            for (let i = 0; i < extensions.length; i++) {
+                // Apply the same filtering logic to extensions
+                if (!extensions[i].coord.gt(upperCutoff)) {
+                    wordPool.push(extensions[i]);
+                }
+            }
+
+
+
         }
+
+        if (wordPool.length === 0) {return null;}
         searching = false;
         for (let i = 0; i < wordPool.length; i++) {
             if (!wordPool[i].isTerminated && !isTooLong(wordPool[i], limit)) {
+                if (logging) console.log("  Continuing search with word: ", wordPool[i]);
                 searching = true;
                 break;
             }
@@ -305,7 +341,7 @@ function getWordedNumber(limit, goingDown = true) {
             }
         }
     }
-    return [bestWord.numberText, bestWord.coord, isTooLong(bestWord, limit)];
+    return [bestWord.numberText, bestWord.coord, !bestWord.isTerminated];
 }
 
 const title = "Integers:"
@@ -317,14 +353,14 @@ function calcWords() {
     let upperLimit = trueBottom;
     while (true) {
         const nextWord = getWordedNumber(upperLimit, true);
-        if (!nextWord) break;
+        if (!nextWord) { break; }
         trueWords.unshift(nextWord);
         upperLimit = nextWord[1].minus(minCoordHeight);
         if (nextWord[1].lt(lowerLimit)) break;
     }
     trueWords.unshift([title, new Decimal(0), false]);
     lastWord = getWordedNumber(trueBottom, false);
-    if (lastWord) trueWords.push(lastWord);
+    if (lastWord) { trueWords.push(lastWord); }
     //Logging
     console.log("words: ", trueWords.map(w => w[0].substring(0, 30) + " @ " + w[1].toString()).join(",\n"));
 
@@ -333,7 +369,6 @@ function calcWords() {
 function draw() {
     fillBackground();
     for (let i = 0; i < trueWords.length - 1; i++) {
-        // Draw line only if fractal details are being skipped
         const shouldDrawLine = trueWords[i].length > 2 && trueWords[i][2] === true;
         drawLeftAlignedText(trueWords[i][0], trueWords[i][1], trueWords[i+1][1], 0, "monospace", txtColor, shouldDrawLine);
     }
@@ -341,8 +376,15 @@ function draw() {
         const shouldDrawLine = trueWords[trueWords.length - 1].length > 2 && trueWords[trueWords.length - 1][2] === true;
         drawLeftAlignedText(trueWords[trueWords.length - 1][0], trueWords[trueWords.length - 1][1], drawBottom, 0, "monospace", txtColor, shouldDrawLine);
     }
-    requestAnimationFrame(() => {});
 }
+
+// Update canvas size when window is resized
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    calcViewDependentVars();
+    draw();
+});
 
 function normalizeBounds() {
     if (trueTop.lt(0)) {
@@ -355,10 +397,10 @@ function normalizeBounds() {
         if (trueTop.lt(0)) trueTop = new Decimal(0);
     }
 }
-function zoom(lowerLimit, upperLimit, log = true) {
+function zoom(lowerLimit, upperLimit, recordZoom = true) {
     trueTop = lowerLimit;
     trueBottom = upperLimit;
-    if (log) {
+    if (recordZoom) {
         histZoomTop.push(trueTop);
         histZoomBottom.push(trueBottom);
     }
@@ -382,14 +424,14 @@ canvas.addEventListener('mousedown', (e) => {
     dragStartCoord = pixelToCoord(dragStartY);
 });
 canvas.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
+    if (!isDragging) { return; }
     draw();
     ctx.strokeStyle = "white";
     ctx.lineWidth = 1;
     ctx.strokeRect(0, Math.min(dragStartY, e.offsetY), (Math.abs(e.offsetY - dragStartY)*canvas.width/canvas.height), Math.abs(e.offsetY - dragStartY));
 });
 canvas.addEventListener('mouseup', (e) => {
-    if (!isDragging) return;
+    if (!isDragging) { return; }
     isDragging = false;
     const dragEndY = e.offsetY;
     if (Math.abs(dragEndY - dragStartY) < dragIgnoreWidth) {
