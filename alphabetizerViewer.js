@@ -62,7 +62,7 @@ function drawLeftAlignedText(text, topHeight, bottomHeight, leftMargin = 0, font
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.shadowColor = color;
-    ctx.shadowBlur = fontSize * 0.5;
+    // ctx.shadowBlur = fontSize * 0.5;
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 0;
     ctx.fillStyle = color;
@@ -203,18 +203,18 @@ function getWordedNumber(limit, goingDown = true) {
         }
         wordPool = newWordPool;
         const shortestWordIndex = getShortestUnfinishedWordIndex(wordPool, goingDown);
-        console.log("closestWord", closestWord)
-        console.log("wordPool", wordPool)
-        console.log("shortestWordIndex", shortestWordIndex)
+        // console.log("closestWord", closestWord)
+        // console.log("wordPool", wordPool)
+        // console.log("shortestWordIndex", shortestWordIndex)
         if (shortestWordIndex === -1) { break; }
         const shortestWord = wordPool.splice(shortestWordIndex, 1)[0];
-        console.log("shortestWord", shortestWord)
+        // console.log("shortestWord", shortestWord)
         const extensions = getExtensions(shortestWord, closestWord, limit, goingDown);
-        console.log("extensions", extensions)
+        // console.log("extensions", extensions)
         for (let i = 0; i < extensions.length; i++) {
             wordPool.push(extensions[i]);
         }
-        console.log("new wordPool", wordPool)
+        // console.log("new wordPool", wordPool)
         searching = false;
         for (let i = 0; i < wordPool.length; i++) {
             if (!wordPool[i].isTerminated && !isTooLong(wordPool[i])) {
@@ -223,7 +223,7 @@ function getWordedNumber(limit, goingDown = true) {
             }
         }
     }
-    console.log("return")
+    // console.log("return")
     if (wordPool.length === 0) { return null; }
     let bestWord = wordPool[wordPool.length - 1];
     return [bestWord.numberText, bestWord.coord, !bestWord.isTerminated];
@@ -246,8 +246,7 @@ function calcWords() {
     trueWords.unshift([title, new Decimal(0), false]);
     lastWord = getWordedNumber(trueBottom, false);
     if (lastWord) { trueWords.push(lastWord); }
-    //Logging
-    console.log("words: ", trueWords.map(w => w[0].substring(0, 30) + " @ " + w[1].toString()).join(",\n"));
+    // console.log("words: ", trueWords.map(w => "-" + w[0].substring(0, 30) + " @ " + w[1].toString().substring(0, 30)).join(",\n"));
 
 }
 
@@ -304,6 +303,7 @@ let dragStartY = 0;
 let dragStartCoord = null;
 let dragIgnoreWidth = 10; // Pixels
 canvas.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
     isDragging = true;
     dragStartY = e.offsetY;
     dragStartCoord = pixelToCoord(dragStartY);
@@ -320,7 +320,8 @@ canvas.addEventListener('mouseup', (e) => {
     isDragging = false;
     const dragEndY = e.offsetY;
     if (Math.abs(dragEndY - dragStartY) < dragIgnoreWidth) {
-        return; // Ignore small drags
+        draw();
+        return;
     }
     const dragEndCoord = pixelToCoord(dragEndY);
     const topCoord = dragStartCoord.lt(dragEndCoord) ? dragStartCoord : dragEndCoord;
@@ -328,7 +329,10 @@ canvas.addEventListener('mouseup', (e) => {
     zoom(topCoord, bottomCoord);
 });
 canvas.addEventListener('mouseleave', (e) => {
-    isDragging = false;
+    if (isDragging) {
+        isDragging = false;
+        draw(); // Redraw to remove selection rectangle
+    }
 });
 
 const zoomWheelFactor = 1.4; // Zoom in/out factor per wheel event
@@ -362,8 +366,10 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-const startTop = new Decimal(0) // new Decimal("0.3117108853300605457130859349360471833532425609697088177919451673740825169883367752926928174086872039538151736902273444055539819878298438045862730336928253350940773142579067810020102958598201296721363796327365095739181827229684490643159821376432614865299394455875267398961597167303839272547210464128115223588823199334886961002700752491556175574137936373568602218596031187536756682522624");
-const startBottom = new Decimal(1) //new Decimal("0.4401752804118130780191373194736594203767532508900088085674557666154373513966332469213585452870185375013207361087058030195134552354774061899105675583872023228491713625328206746836800572559272373645541769851335943756427903351118539967781431415272374938035758153218242739876825519147264612774272672134132053022753028057133273081009649908640263883529244552745507588660943571536756682522624");
+const startTop = new Decimal(0) 
+    // new Decimal("0.3117108853300605457130859349360471833532425609697088177919451673740825169883367752926928174086872039538151736902273444055539819878298438045862730336928253350940773142579067810020102958598201296721363796327365095739181827229684490643159821376432614865299394455875267398961597167303839272547210464128115223588823199334886961002700752491556175574137936373568602218596031187536756682522624");
+const startBottom = new Decimal(1) 
+    // new Decimal("0.4401752804118130780191373194736594203767532508900088085674557666154373513966332469213585452870185375013207361087058030195134552354774061899105675583872023228491713625328206746836800572559272373645541769851335943756427903351118539967781431415272374938035758153218242739876825519147264612774272672134132053022753028057133273081009649908640263883529244552745507588660943571536756682522624");
 const histZoomTop = [startTop];
 const histZoomBottom = [startBottom];
 
